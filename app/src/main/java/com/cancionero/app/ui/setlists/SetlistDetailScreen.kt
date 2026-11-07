@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -37,8 +38,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.cancionero.app.data.model.Song
+import com.cancionero.app.share.ShareHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,11 +49,13 @@ fun SetlistDetailScreen(
     vm: SetlistDetailViewModel,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val setlist by vm.setlist.collectAsState()
     val songs by vm.songs.collectAsState()
     val allSongs by vm.allSongs.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf<Song?>(null) }
+    var showShareDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -59,6 +64,14 @@ fun SetlistDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Atrás")
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = { showShareDialog = true },
+                        enabled = songs.isNotEmpty()
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = "Compartir")
                     }
                 }
             )
@@ -161,6 +174,34 @@ fun SetlistDetailScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showAddDialog = false }) { Text("Cerrar") }
+                }
+            )
+        }
+
+        if (showShareDialog) {
+            AlertDialog(
+                onDismissRequest = { showShareDialog = false },
+                title = { Text("Compartir setlist") },
+                text = { Text("Selecciona el formato:") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        ShareHelper.shareJson(
+                            context,
+                            setlist?.name ?: "Setlist",
+                            songs
+                        )
+                        showShareDialog = false
+                    }) { Text("Archivo JSON") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        ShareHelper.shareText(
+                            context,
+                            setlist?.name ?: "Setlist",
+                            songs
+                        )
+                        showShareDialog = false
+                    }) { Text("Texto") }
                 }
             )
         }
