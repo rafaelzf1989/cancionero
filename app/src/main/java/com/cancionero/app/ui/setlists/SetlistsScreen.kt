@@ -1,7 +1,6 @@
 package com.cancionero.app.ui.setlists
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -44,7 +44,8 @@ import java.util.Locale
 fun SetlistsScreen(
     vm: SetlistsViewModel,
     onOpenSetlist: (Setlist) -> Unit,
-    onCreateSetlist: (String) -> Unit
+    onCreateSetlist: (String) -> Unit,
+    onImportClick: () -> Unit
 ) {
     val setlists by vm.setlists.collectAsState()
     var showCreate by remember { mutableStateOf(false) }
@@ -52,7 +53,16 @@ fun SetlistsScreen(
     var confirmDelete by remember { mutableStateOf<Setlist?>(null) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Setlists") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Setlists") },
+                actions = {
+                    IconButton(onClick = onImportClick) {
+                        Icon(Icons.Default.FileDownload, contentDescription = "Importar")
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = {
                 newName = ""
@@ -85,7 +95,7 @@ fun SetlistsScreen(
                         Column(Modifier.weight(1f)) {
                             Text(sl.name, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                text = "Creado: " + SimpleDateFormat(
+                                "Creado: " + SimpleDateFormat(
                                     "dd/MM/yyyy", Locale.getDefault()
                                 ).format(Date(sl.createdAt)),
                                 style = MaterialTheme.typography.bodySmall
@@ -134,7 +144,7 @@ fun SetlistsScreen(
                 onDismissRequest = { confirmDelete = null },
                 title = { Text("Eliminar setlist") },
                 text = {
-                    Text("¿Eliminar \"${sl.name}\"? Las canciones del repertorio no se borran.")
+                    Text("¿Eliminar \"${sl.name}\"? Las canciones no se borran del repertorio.")
                 },
                 confirmButton = {
                     TextButton(onClick = {
