@@ -25,6 +25,9 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE id = :id")
     suspend fun getById(id: Long): Song?
 
+    @Query("SELECT * FROM songs WHERE title = :title COLLATE NOCASE LIMIT 1")
+    suspend fun findByTitle(title: String): Song?
+
     @Query("UPDATE songs SET usageCount = usageCount + 1 WHERE id = :id")
     suspend fun incrementUsage(id: Long)
 
