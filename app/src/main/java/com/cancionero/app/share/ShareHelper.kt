@@ -1,0 +1,42 @@
+package com.cancionero.app.share
+
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
+import com.cancionero.app.data.model.Song
+import java.io.File
+
+object ShareHelper {
+
+    fun shareText(context: Context, name: String, songs: List<Song>) {
+        val text = SetlistShare.toText(name, songs)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, name)
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        context.startActivity(Intent.createChooser(intent, "Compartir setlist"))
+    }
+
+    fun shareJson(context: Context, name: String, songs: List<Song>) {
+        try {
+            val json = SetlistShare.toJson(name, songs)
+            val safeName = name.replace(Regex("[^a-zA-Z0-9_\\-]"), "_").take(40)
+            val file = File(context.cacheDir, "setlist_$safeName.json")
+            file.writeText(json)
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Compartir setlist"))
+        } catch (e: Exception) {
+            // Si falla, no rompemos la app
+        }
+    }
+}
