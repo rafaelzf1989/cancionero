@@ -44,6 +44,12 @@ interface SetlistDao {
     @Query("SELECT COALESCE(MAX(position), -1) FROM setlist_songs WHERE setlistId = :setlistId")
     suspend fun maxPosition(setlistId: Long): Int
 
+    @Query("SELECT * FROM setlist_songs WHERE setlistId = :setlistId ORDER BY position ASC")
+    suspend fun getAllRefs(setlistId: Long): List<SetlistSong>
+
+    @Query("UPDATE setlist_songs SET position = :pos WHERE setlistId = :setlistId AND songId = :songId")
+    suspend fun updatePosition(setlistId: Long, songId: Long, pos: Int)
+
     @Query("SELECT COUNT(*) FROM setlists")
     suspend fun count(): Int
 }
