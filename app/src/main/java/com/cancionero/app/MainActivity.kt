@@ -3,12 +3,14 @@ package com.cancionero.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -16,19 +18,26 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cancionero.app.data.db.AppDatabase
 import com.cancionero.app.data.model.Song
+import com.cancionero.app.ui.setlists.ImportSetlistScreen
+import com.cancionero.app.ui.setlists.ImportViewModel
 import com.cancionero.app.ui.setlists.SetlistDetailScreen
 import com.cancionero.app.ui.setlists.SetlistDetailViewModel
 import com.cancionero.app.ui.setlists.SetlistsScreen
 import com.cancionero.app.ui.setlists.SetlistsViewModel
+import com.cancionero.app.ui.settings.SettingsScreen
+import com.cancionero.app.ui.settings.ThemePreference
 import com.cancionero.app.ui.songs.RepertorioScreen
 import com.cancionero.app.ui.songs.SongFormScreen
 import com.cancionero.app.ui.songs.SongsViewModel
@@ -38,27 +47,48 @@ sealed interface Screen {
     data object SongForm : Screen
     data object Setlists : Screen
     data class SetlistDetail(val id: Long) : Screen
+    data object ImportSetlist : Screen
+    data object Settings : Screen
 }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val db = AppDatabase.get(this)
-        setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    AppRoot(db)
-                }
+        setContent { AppRoot(db) }
+    }
+}
+
+@Composable
+fun AppRoot(db: AppDatabase) {
+    val context = LocalContext.current
+    var themeMode by remember { mutableStateOf(ThemePreference.getMode(context)) }
+    val systemDark = isSystemInDarkTheme()
+    val darkTheme = when (themeMode) {
+        ThemePreference.MODE_LIGHT -> false
+        ThemePreference.MODE_DARK -> true
+        else -> systemDark
+    }
+
+    MaterialTheme(
+        colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()
+    ) {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            AppContent(db, themeMode) { newMode ->
+                ThemePreference.setMode(context, newMode)
+                themeMode = newMode
             }
         }
     }
 }
 
 @Composable
-fun AppRoot(db: AppDatabase) {
+fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Unit) {
     var screen by remember { mutableStateOf<Screen>(Screen.Repertorio) }
     var editingSong by remember { mutableStateOf<Song?>(null) }
-    val showBottomBar = screen is Screen.Repertorio || screen is Screen.Setlists
+    val showBottomBar = screen is Screen.Repertorio ||
+            screen is Screen.Setlists ||
+            screen is Screen.Settings
 
     Scaffold(
         bottomBar = {
@@ -67,18 +97,20 @@ fun AppRoot(db: AppDatabase) {
                     NavigationBarItem(
                         selected = screen is Screen.Repertorio,
                         onClick = { screen = Screen.Repertorio },
-                        icon = {
-                            Icon(Icons.Default.MusicNote, contentDescription = null)
-                        },
+                        icon = { Icon(Icons.Default.MusicNote, contentDescription = null) },
                         label = { Text("Repertorio") }
                     )
                     NavigationBarItem(
                         selected = screen is Screen.Setlists,
                         onClick = { screen = Screen.Setlists },
-                        icon = {
-                            Icon(Icons.Default.QueueMusic, contentDescription = null)
-                        },
+                        icon = { Icon(Icons.Default.QueueMusic, contentDescription = null) },
                         label = { Text("Setlists") }
+                    )
+                    NavigationBarItem(
+                        selected = screen is Screen.Settings,
+                        onClick = { screen = Screen.Settings },
+                        icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                        label = { Text("Ajustes") }
                     )
                 }
             }
@@ -131,7 +163,8 @@ fun AppRoot(db: AppDatabase) {
                     SetlistsScreen(
                         vm = vm,
                         onOpenSetlist = { sl -> screen = Screen.SetlistDetail(sl.id) },
-                        onCreateSetlist = { name -> vm.create(name) }
+                        onCreateSetlist = { name -> vm.create(name) },
+                        onImportClick = { screen = Screen.ImportSetlist }
                     )
                 }
                 is Screen.SetlistDetail -> {
@@ -144,6 +177,22 @@ fun AppRoot(db: AppDatabase) {
                     SetlistDetailScreen(
                         vm = vm,
                         onBack = { screen = Screen.Setlists }
+                    )
+                }
+                is Screen.ImportSetlist -> {
+                    val vm: ImportViewModel = viewModel(
+                        factory = ImportViewModel.factory(db.setlistDao(), db.songDao())
+                    )
+                    ImportSetlistScreen(
+                        vm = vm,
+                        onBack = { screen = Screen.Setlists },
+                        onImported = { screen = Screen.Setlists }
+                    )
+                }
+                is Screen.Settings -> {
+                    SettingsScreen(
+                        currentMode = themeMode,
+                        onModeChanged = onThemeModeChanged
                     )
                 }
             }
