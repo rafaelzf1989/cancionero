@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Settings
@@ -21,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,7 +31,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cancionero.app.data.db.AppDatabase
+import com.cancionero.app.data.model.Culto
 import com.cancionero.app.data.model.Song
+import com.cancionero.app.ui.cultos.CultoFormScreen
+import com.cancionero.app.ui.cultos.CultosScreen
+import com.cancionero.app.ui.cultos.CultosViewModel
 import com.cancionero.app.ui.setlists.ImportSetlistScreen
 import com.cancionero.app.ui.setlists.ImportViewModel
 import com.cancionero.app.ui.setlists.SetlistDetailScreen
@@ -48,6 +54,8 @@ sealed interface Screen {
     data object Setlists : Screen
     data class SetlistDetail(val id: Long) : Screen
     data object ImportSetlist : Screen
+    data object Cultos : Screen
+    data object CultoForm : Screen
     data object Settings : Screen
 }
 
@@ -86,8 +94,11 @@ fun AppRoot(db: AppDatabase) {
 fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Unit) {
     var screen by remember { mutableStateOf<Screen>(Screen.Repertorio) }
     var editingSong by remember { mutableStateOf<Song?>(null) }
+    var editingCulto by remember { mutableStateOf<Culto?>(null) }
+
     val showBottomBar = screen is Screen.Repertorio ||
             screen is Screen.Setlists ||
+            screen is Screen.Cultos ||
             screen is Screen.Settings
 
     Scaffold(
@@ -105,6 +116,12 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                         onClick = { screen = Screen.Setlists },
                         icon = { Icon(Icons.Default.QueueMusic, contentDescription = null) },
                         label = { Text("Setlists") }
+                    )
+                    NavigationBarItem(
+                        selected = screen is Screen.Cultos,
+                        onClick = { screen = Screen.Cultos },
+                        icon = { Icon(Icons.Default.Event, contentDescription = null) },
+                        label = { Text("Cultos") }
                     )
                     NavigationBarItem(
                         selected = screen is Screen.Settings,
@@ -187,6 +204,46 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                         vm = vm,
                         onBack = { screen = Screen.Setlists },
                         onImported = { screen = Screen.Setlists }
+                    )
+                }
+                is Screen.Cultos -> {
+                    val vm: CultosViewModel = viewModel(
+                        factory = CultosViewModel.factory(db.cultoDao(), db.setlistDao())
+                    )
+                    CultosScreen(
+                        vm = vm,
+                        onCreateCulto = {
+                            editingCulto = null
+                            screen = Screen.CultoForm
+                        },
+                        onEditCulto = { culto ->
+                            editingCulto = culto
+                            screen = Screen.CultoForm
+                        }
+                    )
+                }
+                is Screen.CultoForm -> {
+                    val vm: CultosViewModel = viewModel(
+                        factory = CultosViewModel.factory(db.cultoDao(), db.setlistDao())
+                    )
+                    val setlists by vm.setlists.collectAsState()
+                    CultoFormScreen(
+                        initial = editingCulto,
+                        setlists = setlists,
+                        onSave = { culto ->
+                            vm.save(culto)
+                            editingCulto = null
+                            screen = Screen.Cultos
+                        },
+                        onDelete = { culto ->
+                            vm.delete(culto)
+                            editingCulto = null
+                            screen = Screen.Cultos
+                        },
+                        onCancel = {
+                            editingCulto = null
+                            screen = Screen.Cultos
+                        }
                     )
                 }
                 is Screen.Settings -> {
