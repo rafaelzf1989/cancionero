@@ -11,10 +11,11 @@ import com.cancionero.app.data.model.Moment
 import com.cancionero.app.data.model.Setlist
 import com.cancionero.app.data.model.SetlistSong
 import com.cancionero.app.data.model.Song
+import java.util.Calendar
 
 @Database(
     entities = [Song::class, Setlist::class, SetlistSong::class, Culto::class, Moment::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -61,13 +62,69 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `cultos_new` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`dateMillis` INTEGER NOT NULL, " +
+                        "`setlistId` INTEGER)"
+                )
+                val cursor = db.query(
+                    "SELECT id, name, dayOfWeek, time, setlistId FROM cultos"
+                )
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(0)
+                    val name = cursor.getString(1)
+                    val dow = cursor.getInt(2)
+                    val time = cursor.getString(3) ?: "19:00"
+                    val setlistId = if (cursor.isNull(4)) null else cursor.getLong(4)
+                    val dateMillis = computeNextOccurrence(dow, time)
+                    if (setlistId != null) {
+                        db.execSQL(
+                            "INSERT INTO cultos_new (id, name, dateMillis, setlistId) VALUES (?, ?, ?, ?)",
+                            arrayOf<Any>(id, name, dateMillis, setlistId)
+                        )
+                    } else {
+                        db.execSQL(
+                            "INSERT INTO cultos_new (id, name, dateMillis, setlistId) VALUES (?, ?, ?, NULL)",
+                            arrayOf<Any>(id, name, dateMillis)
+                        )
+                    }
+                }
+                cursor.close()
+                db.execSQL("DROP TABLE cultos")
+                db.execSQL("ALTER TABLE cultos_new RENAME TO cultos")
+            }
+        }
+
+        private fun computeNextOccurrence(dayOfWeek: Int, time: String): Long {
+            val cal = Calendar.getInstance()
+            val targetDow = if (dayOfWeek == 7) 1 else dayOfWeek + 1
+            val parts = time.split(":")
+            val h = parts.getOrNull(0)?.toIntOrNull() ?: 19
+            val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            cal.set(Calendar.HOUR_OF_DAY, h)
+            cal.set(Calendar.MINUTE, m)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            val currentDow = cal.get(Calendar.DAY_OF_WEEK)
+            val daysToAdd = (targetDow - currentDow + 7) % 7
+            cal.add(Calendar.DAY_OF_MONTH, daysToAdd)
+            if (cal.timeInMillis <= System.currentTimeMillis()) {
+                cal.add(Calendar.DAY_OF_MONTH, 7)
+            }
+            return cal.timeInMillis
+        }
+
         fun get(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "cancionero.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build().also { INSTANCE = it }
             }
         }
