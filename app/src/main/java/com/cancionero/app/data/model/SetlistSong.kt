@@ -3,7 +3,9 @@ package com.cancionero.app.data.model
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(
     tableName = "setlist_songs",
     primaryKeys = ["setlistId", "songId"],
