@@ -1,5 +1,6 @@
 package com.cancionero.app.ui.setlists
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -48,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import com.cancionero.app.data.model.Song
 import com.cancionero.app.share.ShareHelper
 import sh.calvin.reorderable.ReorderableItem
-import sh.calvin.reorderable.longPressDraggableHandle
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
 private val MOMENT_ORDER = listOf(
@@ -56,7 +56,7 @@ private val MOMENT_ORDER = listOf(
     "Comunión", "Especial", "Despedida"
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SetlistDetailScreen(
     vm: SetlistDetailViewModel,
