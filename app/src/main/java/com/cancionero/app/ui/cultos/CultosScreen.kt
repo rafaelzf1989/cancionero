@@ -43,28 +43,32 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.cancionero.app.data.model.Culto
 import com.cancionero.app.data.model.Setlist
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
-internal fun dayName(day: Int): String = when (day) {
-    1 -> "Lunes"
-    2 -> "Martes"
-    3 -> "Miércoles"
-    4 -> "Jueves"
-    5 -> "Viernes"
-    6 -> "Sábado"
-    7 -> "Domingo"
-    else -> "?"
+internal fun formatDateHeader(millis: Long): String {
+    val sdf = SimpleDateFormat("EEEE, d 'de' MMMM 'de' yyyy", Locale("es"))
+    return sdf.format(Date(millis)).replaceFirstChar { it.uppercase() }
 }
 
-internal fun dayShortName(day: Int): String = when (day) {
-    1 -> "Lun"
-    2 -> "Mar"
-    3 -> "Mié"
-    4 -> "Jue"
-    5 -> "Vie"
-    6 -> "Sáb"
-    7 -> "Dom"
-    else -> "?"
+internal fun formatTime12h(millis: Long): String {
+    val cal = Calendar.getInstance()
+    cal.timeInMillis = millis
+    val h = cal.get(Calendar.HOUR_OF_DAY)
+    val m = cal.get(Calendar.MINUTE)
+    val amPm = if (h < 12) "AM" else "PM"
+    val h12 = when {
+        h == 0 -> 12
+        h > 12 -> h - 12
+        else -> h
+    }
+    return String.format(Locale.US, "%d:%02d %s", h12, m, amPm)
 }
+
+internal fun formatDateTime(millis: Long): String =
+    "${formatDateHeader(millis)} · ${formatTime12h(millis)}"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +83,9 @@ fun CultosScreen(
     var confirmDelete by remember { mutableStateOf<Culto?>(null) }
 
     val setlistsById = setlists.associateBy { it.id }
-    val grouped = cultos.groupBy { it.dayOfWeek }
+    val grouped = cultos
+        .sortedBy { it.dateMillis }
+        .groupBy { formatDateHeader(it.dateMillis) }
 
     Scaffold(
         topBar = {
@@ -113,26 +119,24 @@ fun CultosScreen(
             }
         } else {
             LazyColumn(Modifier.padding(padding).fillMaxSize()) {
-                (1..7).forEach { day ->
-                    val dayCultos = grouped[day].orEmpty()
-                    if (dayCultos.isNotEmpty()) {
-                        item(key = "header_$day") {
-                            Text(
-                                text = dayName(day),
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                            )
-                            HorizontalDivider()
-                        }
-                        items(dayCultos, key = { it.id }) { culto ->
-                            CultoRow(
-                                culto = culto,
-                                setlistName = culto.setlistId?.let { setlistsById[it]?.name },
-                                onClick = { onEditCulto(culto) },
-                                onDelete = { confirmDelete = culto }
-                            )
-                            HorizontalDivider()
-                        }
+                grouped.forEach { (dateHeader, dayCultos) ->
+                    item(key = "header_$dateHeader") {
+                        Text(
+                            text = dateHeader,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                        HorizontalDivider()
+                    }
+                    items(dayCultos, key = { it.id }) { culto ->
+                        CultoRow(
+                            culto = culto,
+                            setlistName = culto.setlistId?.let { setlistsById[it]?.name },
+                            onClick = { onEditCulto(culto) },
+                            onDelete = { confirmDelete = culto }
+                        )
+                        HorizontalDivider()
                     }
                 }
             }
@@ -186,7 +190,7 @@ private fun CultoRow(
         Column(Modifier.weight(1f)) {
             Text(culto.name, style = MaterialTheme.typography.titleMedium)
             Text(
-                "${culto.time} · ${setlistName ?: "Sin setlist"}",
+                "${formatTime12h(culto.dateMillis)} · ${setlistName ?: "Sin setlist"}",
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -252,7 +256,7 @@ private fun BulkAssignDialog(
                         .heightIn(max = 300.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    cultos.forEach { c ->
+                    cultos.sortedBy { it.dateMillis }.forEach { c ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -277,7 +281,7 @@ private fun BulkAssignDialog(
                             Column {
                                 Text(c.name)
                                 Text(
-                                    "${dayName(c.dayOfWeek)} · ${c.time}",
+                                    formatDateTime(c.dateMillis),
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
