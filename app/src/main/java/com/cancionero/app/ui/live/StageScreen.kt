@@ -37,7 +37,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.cancionero.app.data.model.Song
 
 @Composable
@@ -48,7 +51,7 @@ fun StageScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    var currentIndex by remember {
+    var currentIndex by remember(startIndex, songs.size) {
         mutableIntStateOf(startIndex.coerceIn(0, (songs.size - 1).coerceAtLeast(0)))
     }
 
@@ -66,10 +69,7 @@ fun StageScreen(
         Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 Text("Sin canciones", color = Color.White)
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
-                ) {
+                IconButton(onClick = onBack, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
                     Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = Color.White)
                 }
             }
@@ -78,46 +78,29 @@ fun StageScreen(
     }
 
     val song = songs[currentIndex]
+    val sections = remember(song.lyrics) { HolyricsParser.parse(song.lyrics ?: "") }
 
     Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = Color.White)
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        cultoName,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFF9E9E9E)
-                    )
-                    Text(
-                        "Canción ${currentIndex + 1} / ${songs.size}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF9E9E9E)
-                    )
+                    Text(cultoName, style = MaterialTheme.typography.labelMedium, color = Color(0xFF9E9E9E))
+                    Text("Canción ${currentIndex + 1} / ${songs.size}", style = MaterialTheme.typography.labelSmall, color = Color(0xFF9E9E9E))
                 }
             }
 
             HorizontalDivider(color = Color(0xFF333333))
 
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
-                Text(
-                    song.title,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = Color.White
-                )
+                Text(song.title, style = MaterialTheme.typography.headlineMedium, color = Color.White)
                 Spacer(Modifier.height(8.dp))
 
                 Row(
@@ -126,9 +109,7 @@ fun StageScreen(
                 ) {
                     MetaItem(label = "Tono", value = song.songKey)
                     song.tempoBpm?.let { MetaItem(label = "BPM", value = it.toString()) }
-                    song.tempoText?.takeIf { it.isNotBlank() }?.let {
-                        MetaItem(label = "Tempo", value = it)
-                    }
+                    song.tempoText?.takeIf { it.isNotBlank() }?.let { MetaItem(label = "Tempo", value = it) }
                     song.moment?.let { MetaItem(label = "Momento", value = it) }
                 }
 
@@ -137,25 +118,54 @@ fun StageScreen(
                 Spacer(Modifier.height(20.dp))
 
                 if (!song.notes.isNullOrBlank()) {
-                    Text(
-                        "Notas: ${song.notes}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFFFFD54F)
-                    )
+                    Text("Notas: ${song.notes}", style = MaterialTheme.typography.bodyMedium, color = Color(0xFFFFD54F))
                     Spacer(Modifier.height(12.dp))
                 }
 
-                if (!song.lyrics.isNullOrBlank()) {
-                    Text(
-                        song.lyrics,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White
-                    )
+                if (sections.isNotEmpty()) {
+                    sections.forEach { section ->
+                        // Título de la sección (Etiqueta)
+                        Surface(
+                            color = Color(0xFF333333),
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            Text(
+                                section.title.uppercase(),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color(0xFF9E9E9E),
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        
+                        // Líneas de acordes y letras
+                        section.lines.forEach { line ->
+                            if (line.chords.isNotBlank()) {
+                                Text(
+                                    text = line.chords,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF00E5FF), // Cian contrastante
+                                    fontSize = 16.sp
+                                )
+                            }
+                            if (line.lyrics.isNotBlank()) {
+                                Text(
+                                    text = line.lyrics,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = Color.White,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
                 } else {
                     Text(
-                        "Sin letra registrada.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF9E9E9E)
+                        song.lyrics ?: "Sin letra registrada.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White
                     )
                 }
                 Spacer(Modifier.height(80.dp))
@@ -164,17 +174,13 @@ fun StageScreen(
             HorizontalDivider(color = Color(0xFF333333))
 
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(
                     onClick = { if (currentIndex > 0) currentIndex-- },
                     enabled = currentIndex > 0,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(64.dp),
+                    modifier = Modifier.weight(1f).height(64.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF303030),
                         contentColor = Color.White,
@@ -189,9 +195,7 @@ fun StageScreen(
                 Button(
                     onClick = { if (currentIndex < songs.size - 1) currentIndex++ },
                     enabled = currentIndex < songs.size - 1,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(64.dp),
+                    modifier = Modifier.weight(1f).height(64.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF00897B),
                         contentColor = Color.White,
@@ -211,15 +215,7 @@ fun StageScreen(
 @Composable
 private fun MetaItem(label: String, value: String) {
     Column {
-        Text(
-            label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = Color(0xFF9E9E9E)
-        )
-        Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White
-        )
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = Color(0xFF9E9E9E))
+        Text(value, style = MaterialTheme.typography.titleMedium, color = Color.White)
     }
 }
