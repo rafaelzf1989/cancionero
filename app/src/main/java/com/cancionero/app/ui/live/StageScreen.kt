@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cancionero.app.data.model.Song
+import com.cancionero.app.ui.settings.AppSettings
 
 @Composable
 fun StageScreen(
@@ -55,6 +56,11 @@ fun StageScreen(
         mutableIntStateOf(startIndex.coerceIn(0, (songs.size - 1).coerceAtLeast(0)))
     }
 
+    val bgColor = AppSettings.getBgColor(context)
+    val chordColor = AppSettings.getChordColor(context)
+    val lyricsColor = AppSettings.getLyricsColor(context)
+    val sectionColor = AppSettings.getSectionColor(context)
+
     val activity = context as? Activity
     DisposableEffect(activity) {
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -66,11 +72,11 @@ fun StageScreen(
     BackHandler(onBack = onBack)
 
     if (songs.isEmpty()) {
-        Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
+        Surface(color = bgColor, modifier = Modifier.fillMaxSize()) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Text("Sin canciones", color = Color.White)
+                Text("Sin canciones", color = lyricsColor)
                 IconButton(onClick = onBack, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = Color.White)
+                    Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = lyricsColor)
                 }
             }
         }
@@ -80,41 +86,41 @@ fun StageScreen(
     val song = songs[currentIndex]
     val sections = remember(song.lyrics) { HolyricsParser.parse(song.lyrics ?: "") }
 
-    Surface(color = Color.Black, modifier = Modifier.fillMaxSize()) {
+    Surface(color = bgColor, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = Color.White)
+                    Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = lyricsColor)
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(cultoName, style = MaterialTheme.typography.labelMedium, color = Color(0xFF9E9E9E))
-                    Text("Canción ${currentIndex + 1} / ${songs.size}", style = MaterialTheme.typography.labelSmall, color = Color(0xFF9E9E9E))
+                    Text(cultoName, style = MaterialTheme.typography.labelMedium, color = sectionColor)
+                    Text("Canción ${currentIndex + 1} / ${songs.size}", style = MaterialTheme.typography.labelSmall, color = sectionColor)
                 }
             }
 
-            HorizontalDivider(color = Color(0xFF333333))
+            HorizontalDivider(color = sectionColor.copy(alpha = 0.3f))
 
             Column(
                 modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
-                Text(song.title, style = MaterialTheme.typography.headlineMedium, color = Color.White)
+                Text(song.title, style = MaterialTheme.typography.headlineMedium, color = lyricsColor)
                 Spacer(Modifier.height(8.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    MetaItem(label = "Tono", value = song.songKey)
-                    song.tempoBpm?.let { MetaItem(label = "BPM", value = it.toString()) }
-                    song.tempoText?.takeIf { it.isNotBlank() }?.let { MetaItem(label = "Tempo", value = it) }
-                    song.moment?.let { MetaItem(label = "Momento", value = it) }
+                    MetaItem(label = "Tono", value = song.songKey, labelColor = sectionColor, valueColor = lyricsColor)
+                    song.tempoBpm?.let { MetaItem(label = "BPM", value = it.toString(), labelColor = sectionColor, valueColor = lyricsColor) }
+                    song.tempoText?.takeIf { it.isNotBlank() }?.let { MetaItem(label = "Tempo", value = it, labelColor = sectionColor, valueColor = lyricsColor) }
+                    song.moment?.let { MetaItem(label = "Momento", value = it, labelColor = sectionColor, valueColor = lyricsColor) }
                 }
 
                 Spacer(Modifier.height(20.dp))
-                HorizontalDivider(color = Color(0xFF333333))
+                HorizontalDivider(color = sectionColor.copy(alpha = 0.3f))
                 Spacer(Modifier.height(20.dp))
 
                 if (!song.notes.isNullOrBlank()) {
@@ -126,14 +132,14 @@ fun StageScreen(
                     sections.forEach { section ->
                         // Título de la sección (Etiqueta)
                         Surface(
-                            color = Color(0xFF333333),
+                            color = sectionColor.copy(alpha = 0.2f),
                             shape = MaterialTheme.shapes.small,
                             modifier = Modifier.padding(vertical = 8.dp)
                         ) {
                             Text(
                                 section.title.uppercase(),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = Color(0xFF9E9E9E),
+                                color = sectionColor,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
@@ -146,7 +152,7 @@ fun StageScreen(
                                     text = line.chords,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF00E5FF), // Cian contrastante
+                                    color = chordColor,
                                     fontSize = 16.sp
                                 )
                             }
@@ -154,7 +160,7 @@ fun StageScreen(
                                 Text(
                                     text = line.lyrics,
                                     fontFamily = FontFamily.Monospace,
-                                    color = Color.White,
+                                    color = lyricsColor,
                                     fontSize = 16.sp
                                 )
                             }
@@ -165,13 +171,13 @@ fun StageScreen(
                     Text(
                         song.lyrics ?: "Sin letra registrada.",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White
+                        color = lyricsColor
                     )
                 }
                 Spacer(Modifier.height(80.dp))
             }
 
-            HorizontalDivider(color = Color(0xFF333333))
+            HorizontalDivider(color = sectionColor.copy(alpha = 0.3f))
 
             Row(
                 modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -182,10 +188,10 @@ fun StageScreen(
                     enabled = currentIndex > 0,
                     modifier = Modifier.weight(1f).height(64.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF303030),
-                        contentColor = Color.White,
-                        disabledContainerColor = Color(0xFF1A1A1A),
-                        disabledContentColor = Color(0xFF555555)
+                        containerColor = sectionColor.copy(alpha = 0.3f),
+                        contentColor = lyricsColor,
+                        disabledContainerColor = sectionColor.copy(alpha = 0.1f),
+                        disabledContentColor = sectionColor.copy(alpha = 0.5f)
                     )
                 ) {
                     Icon(Icons.Default.KeyboardArrowLeft, contentDescription = null)
@@ -199,8 +205,8 @@ fun StageScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF00897B),
                         contentColor = Color.White,
-                        disabledContainerColor = Color(0xFF1A1A1A),
-                        disabledContentColor = Color(0xFF555555)
+                        disabledContainerColor = sectionColor.copy(alpha = 0.1f),
+                        disabledContentColor = sectionColor.copy(alpha = 0.5f)
                     )
                 ) {
                     Text("Siguiente")
@@ -213,9 +219,9 @@ fun StageScreen(
 }
 
 @Composable
-private fun MetaItem(label: String, value: String) {
+private fun MetaItem(label: String, value: String, labelColor: Color, valueColor: Color) {
     Column {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = Color(0xFF9E9E9E))
-        Text(value, style = MaterialTheme.typography.titleMedium, color = Color.White)
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = labelColor)
+        Text(value, style = MaterialTheme.typography.titleMedium, color = valueColor)
     }
 }
