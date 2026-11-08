@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -32,12 +33,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cancionero.app.data.db.AppDatabase
 import com.cancionero.app.data.model.Culto
+import com.cancionero.app.data.model.Musician
 import com.cancionero.app.data.model.Song
 import com.cancionero.app.ui.cultos.CultoFormScreen
 import com.cancionero.app.ui.cultos.CultosScreen
 import com.cancionero.app.ui.cultos.CultosViewModel
 import com.cancionero.app.ui.moments.ManageMomentsScreen
 import com.cancionero.app.ui.moments.MomentsViewModel
+import com.cancionero.app.ui.musicians.MusicianFormScreen
+import com.cancionero.app.ui.musicians.MusiciansScreen
+import com.cancionero.app.ui.musicians.MusiciansViewModel
 import com.cancionero.app.ui.setlists.ImportSetlistScreen
 import com.cancionero.app.ui.setlists.ImportViewModel
 import com.cancionero.app.ui.setlists.SetlistDetailScreen
@@ -58,6 +63,8 @@ sealed interface Screen {
     data object ImportSetlist : Screen
     data object Cultos : Screen
     data object CultoForm : Screen
+    data object Musicians : Screen
+    data object MusicianForm : Screen
     data object Settings : Screen
     data object ManageMoments : Screen
 }
@@ -98,12 +105,13 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
     var screen by remember { mutableStateOf<Screen>(Screen.Repertorio) }
     var editingSong by remember { mutableStateOf<Song?>(null) }
     var editingCulto by remember { mutableStateOf<Culto?>(null) }
-    // Guardamos la pantalla a la que volver tras ManageMoments
+    var editingMusician by remember { mutableStateOf<Musician?>(null) }
     var returnAfterMoments by remember { mutableStateOf<Screen>(Screen.Repertorio) }
 
     val showBottomBar = screen is Screen.Repertorio ||
             screen is Screen.Setlists ||
             screen is Screen.Cultos ||
+            screen is Screen.Musicians ||
             screen is Screen.Settings
 
     Scaffold(
@@ -127,6 +135,12 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                         onClick = { screen = Screen.Cultos },
                         icon = { Icon(Icons.Default.Event, contentDescription = null) },
                         label = { Text("Cultos") }
+                    )
+                    NavigationBarItem(
+                        selected = screen is Screen.Musicians,
+                        onClick = { screen = Screen.Musicians },
+                        icon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        label = { Text("Músicos") }
                     )
                     NavigationBarItem(
                         selected = screen is Screen.Settings,
@@ -227,7 +241,9 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                 }
                 is Screen.Cultos -> {
                     val vm: CultosViewModel = viewModel(
-                        factory = CultosViewModel.factory(db.cultoDao(), db.setlistDao())
+                        factory = CultosViewModel.factory(
+                            db.cultoDao(), db.setlistDao(), db.musicianDao()
+                        )
                     )
                     CultosScreen(
                         vm = vm,
@@ -243,14 +259,19 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                 }
                 is Screen.CultoForm -> {
                     val vm: CultosViewModel = viewModel(
-                        factory = CultosViewModel.factory(db.cultoDao(), db.setlistDao())
+                        factory = CultosViewModel.factory(
+                            db.cultoDao(), db.setlistDao(), db.musicianDao()
+                        )
                     )
                     val setlists by vm.setlists.collectAsState()
+                    val musicians by vm.allMusicians.collectAsState()
                     CultoFormScreen(
+                        vm = vm,
                         initial = editingCulto,
                         setlists = setlists,
-                        onSave = { culto ->
-                            vm.save(culto)
+                        allMusicians = musicians,
+                        onSave = { culto, musicianIds ->
+                            vm.save(culto, musicianIds)
                             editingCulto = null
                             screen = Screen.Cultos
                         },
@@ -262,6 +283,44 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                         onCancel = {
                             editingCulto = null
                             screen = Screen.Cultos
+                        }
+                    )
+                }
+                is Screen.Musicians -> {
+                    val vm: MusiciansViewModel = viewModel(
+                        factory = MusiciansViewModel.factory(db.musicianDao())
+                    )
+                    MusiciansScreen(
+                        vm = vm,
+                        onAdd = {
+                            editingMusician = null
+                            screen = Screen.MusicianForm
+                        },
+                        onEdit = { musician ->
+                            editingMusician = musician
+                            screen = Screen.MusicianForm
+                        }
+                    )
+                }
+                is Screen.MusicianForm -> {
+                    val vm: MusiciansViewModel = viewModel(
+                        factory = MusiciansViewModel.factory(db.musicianDao())
+                    )
+                    MusicianFormScreen(
+                        initial = editingMusician,
+                        onSave = { musician ->
+                            vm.save(musician)
+                            editingMusician = null
+                            screen = Screen.Musicians
+                        },
+                        onDelete = { musician ->
+                            vm.delete(musician)
+                            editingMusician = null
+                            screen = Screen.Musicians
+                        },
+                        onCancel = {
+                            editingMusician = null
+                            screen = Screen.Musicians
                         }
                     )
                 }
