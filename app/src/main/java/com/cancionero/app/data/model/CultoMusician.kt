@@ -27,5 +27,6 @@ import kotlinx.serialization.Serializable
 )
 data class CultoMusician(
     val cultoId: Long,
-    val musicianId: Long
+    val musicianId: Long,
+    val rolesInCulto: String? = null
 )
