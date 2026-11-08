@@ -19,7 +19,7 @@ interface CultoDao {
     @Delete
     suspend fun delete(culto: Culto)
 
-    @Query("SELECT * FROM cultos ORDER BY dayOfWeek ASC, time ASC")
+    @Query("SELECT * FROM cultos ORDER BY dateMillis ASC")
     fun observeAll(): Flow<List<Culto>>
 
     @Query("UPDATE cultos SET setlistId = :setlistId WHERE id IN (:ids)")
