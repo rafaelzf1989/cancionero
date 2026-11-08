@@ -141,12 +141,44 @@ fun AppContent(
     onFontScaleChanged: (Float) -> Unit
 ) {
     val context = LocalContext.current
-    var screen by remember { mutableStateOf<Screen>(Screen.Repertorio) }
-    var editingSong by remember { mutableStateOf<Song?>(null) }
-    var editingCulto by remember { mutableStateOf<Culto?>(null) }
-    var editingMusician by remember { mutableStateOf<Musician?>(null) }
-    var returnAfterMoments by remember { mutableStateOf<Screen>(Screen.Repertorio) }
+
+    // ---- Navegación con back stack ----
+    var screen by remember { mutableStateOf<Screen>(Screen.Cultos) }
+    var previousScreens by remember { mutableStateOf<List<Screen>>(emptyList()) }
     var backPressedOnce by remember { mutableStateOf(false) }
+
+    val tabs = setOf<Screen>(
+        Screen.Repertorio,
+        Screen.Setlists,
+        Screen.Cultos,
+        Screen.Musicians,
+        Screen.Settings
+    )
+
+    fun navigateTo(newScreen: Screen) {
+        if (screen == newScreen) return
+        previousScreens = if (
+            newScreen in tabs &&
+            previousScreens.isNotEmpty() &&
+            previousScreens.last() in tabs
+        ) {
+            // Reemplazar tab (no acumular)
+            previousScreens.dropLast(1) + screen
+        } else {
+            previousScreens + screen
+        }
+        screen = newScreen
+    }
+
+    fun goBack(): Boolean {
+        if (previousScreens.isEmpty()) return false
+        editingSong = null
+        editingCulto = null
+        editingMusician = null
+        screen = previousScreens.last()
+        previousScreens = previousScreens.dropLast(1)
+        return true
+    }
 
     LaunchedEffect(screen) {
         backPressedOnce = false
@@ -158,35 +190,36 @@ fun AppContent(
         }
     }
 
+    // ---- Estados de edición ----
+    var editingSong by remember { mutableStateOf<Song?>(null) }
+    var editingCulto by remember { mutableStateOf<Culto?>(null) }
+    var editingMusician by remember { mutableStateOf<Musician?>(null) }
+
     val showBottomBar = screen is Screen.Repertorio ||
             screen is Screen.Setlists ||
             screen is Screen.Cultos ||
             screen is Screen.Musicians ||
             screen is Screen.Settings
 
-    val showDefaultBackHandler = screen !is Screen.Stage && screen !is Screen.LiveCulto
+    val customBackHandlerScreens = screen is Screen.Stage || screen is Screen.LiveCulto
 
-    if (showDefaultBackHandler) {
+    if (!customBackHandlerScreens) {
         BackHandler {
-            when (screen) {
-                is Screen.Repertorio -> {
-                    if (backPressedOnce) {
-                        (context as? Activity)?.finish()
-                    } else {
-                        backPressedOnce = true
-                        Toast.makeText(
-                            context,
-                            "Pulsa atrás de nuevo para salir",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+            if (goBack()) {
+                // ok
+            } else if (screen is Screen.Cultos) {
+                if (backPressedOnce) {
+                    (context as? Activity)?.finish()
+                } else {
+                    backPressedOnce = true
+                    Toast.makeText(
+                        context,
+                        "Pulsa atrás de nuevo para salir",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
-                else -> {
-                    editingSong = null
-                    editingCulto = null
-                    editingMusician = null
-                    screen = Screen.Repertorio
-                }
+            } else {
+                screen = Screen.Cultos
             }
         }
     }
@@ -197,31 +230,31 @@ fun AppContent(
                 NavigationBar {
                     NavigationBarItem(
                         selected = screen is Screen.Repertorio,
-                        onClick = { screen = Screen.Repertorio },
+                        onClick = { navigateTo(Screen.Repertorio) },
                         icon = { Icon(Icons.Default.MusicNote, contentDescription = null) },
                         label = { Text("Repertorio") }
                     )
                     NavigationBarItem(
                         selected = screen is Screen.Setlists,
-                        onClick = { screen = Screen.Setlists },
+                        onClick = { navigateTo(Screen.Setlists) },
                         icon = { Icon(Icons.Default.QueueMusic, contentDescription = null) },
                         label = { Text("Setlists") }
                     )
                     NavigationBarItem(
                         selected = screen is Screen.Cultos,
-                        onClick = { screen = Screen.Cultos },
+                        onClick = { navigateTo(Screen.Cultos) },
                         icon = { Icon(Icons.Default.Event, contentDescription = null) },
                         label = { Text("Cultos") }
                     )
                     NavigationBarItem(
                         selected = screen is Screen.Musicians,
-                        onClick = { screen = Screen.Musicians },
+                        onClick = { navigateTo(Screen.Musicians) },
                         icon = { Icon(Icons.Default.Person, contentDescription = null) },
                         label = { Text("Músicos") }
                     )
                     NavigationBarItem(
                         selected = screen is Screen.Settings,
-                        onClick = { screen = Screen.Settings },
+                        onClick = { navigateTo(Screen.Settings) },
                         icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                         label = { Text("Ajustes") }
                     )
@@ -239,15 +272,14 @@ fun AppContent(
                         vm = vm,
                         onAddSong = {
                             editingSong = null
-                            screen = Screen.SongForm
+                            navigateTo(Screen.SongForm)
                         },
                         onEditSong = { song ->
                             editingSong = song
-                            screen = Screen.SongForm
+                            navigateTo(Screen.SongForm)
                         },
                         onManageMoments = {
-                            returnAfterMoments = Screen.Repertorio
-                            screen = Screen.ManageMoments
+                            navigateTo(Screen.ManageMoments)
                         }
                     )
                 }
@@ -262,25 +294,24 @@ fun AppContent(
                         onSave = { song ->
                             vm.save(song)
                             editingSong = null
-                            screen = Screen.Repertorio
+                            goBack()
                         },
                         onDelete = { song ->
                             vm.delete(song)
                             editingSong = null
-                            screen = Screen.Repertorio
+                            goBack()
                         },
                         onDuplicate = { song ->
                             vm.duplicate(song)
                             editingSong = null
-                            screen = Screen.Repertorio
+                            goBack()
                         },
                         onManageMoments = {
-                            returnAfterMoments = Screen.SongForm
-                            screen = Screen.ManageMoments
+                            navigateTo(Screen.ManageMoments)
                         },
                         onCancel = {
                             editingSong = null
-                            screen = Screen.Repertorio
+                            goBack()
                         }
                     )
                 }
@@ -290,8 +321,8 @@ fun AppContent(
                     )
                     SetlistsScreen(
                         vm = vm,
-                        onOpenSetlist = { sl -> screen = Screen.SetlistDetail(sl.id) },
-                        onImportClick = { screen = Screen.ImportSetlist }
+                        onOpenSetlist = { sl -> navigateTo(Screen.SetlistDetail(sl.id)) },
+                        onImportClick = { navigateTo(Screen.ImportSetlist) }
                     )
                 }
                 is Screen.SetlistDetail -> {
@@ -303,7 +334,7 @@ fun AppContent(
                     )
                     SetlistDetailScreen(
                         vm = vm,
-                        onBack = { screen = Screen.Setlists }
+                        onBack = { goBack() }
                     )
                 }
                 is Screen.ImportSetlist -> {
@@ -312,8 +343,8 @@ fun AppContent(
                     )
                     ImportSetlistScreen(
                         vm = vm,
-                        onBack = { screen = Screen.Setlists },
-                        onImported = { screen = Screen.Setlists }
+                        onBack = { goBack() },
+                        onImported = { goBack() }
                     )
                 }
                 is Screen.Cultos -> {
@@ -326,14 +357,14 @@ fun AppContent(
                         vm = vm,
                         onCreateCulto = {
                             editingCulto = null
-                            screen = Screen.CultoForm
+                            navigateTo(Screen.CultoForm)
                         },
                         onEditCulto = { culto ->
                             editingCulto = culto
-                            screen = Screen.CultoForm
+                            navigateTo(Screen.CultoForm)
                         },
                         onStartLive = { cultoId ->
-                            screen = Screen.LiveCulto(cultoId)
+                            navigateTo(Screen.LiveCulto(cultoId))
                         }
                     )
                 }
@@ -353,16 +384,16 @@ fun AppContent(
                         onSave = { culto, musicianIds, musicianRoles, setlistIds ->
                             vm.save(culto, musicianIds, musicianRoles, setlistIds)
                             editingCulto = null
-                            screen = Screen.Cultos
+                            goBack()
                         },
                         onDelete = { culto ->
                             vm.delete(culto)
                             editingCulto = null
-                            screen = Screen.Cultos
+                            goBack()
                         },
                         onCancel = {
                             editingCulto = null
-                            screen = Screen.Cultos
+                            goBack()
                         }
                     )
                 }
@@ -374,9 +405,9 @@ fun AppContent(
                     LiveCultoScreen(
                         vm = vm,
                         onSongClick = { index ->
-                            screen = Screen.Stage(s.cultoId, index)
+                            navigateTo(Screen.Stage(s.cultoId, index))
                         },
-                        onBack = { screen = Screen.Cultos }
+                        onBack = { goBack() }
                     )
                 }
                 is Screen.Stage -> {
@@ -390,44 +421,44 @@ fun AppContent(
                         cultoName = culto?.name ?: "Culto",
                         songs = songs,
                         startIndex = s.startIndex,
-                        onBack = { screen = Screen.LiveCulto(s.cultoId) }
+                        onBack = { goBack() }
                     )
                 }
                 is Screen.Musicians -> {
                     val vm: MusiciansViewModel = viewModel(
-                        factory = MusiciansViewModel.factory(db.musicianDao())
+                        factory = MusiciansViewModel.factory(db.musicianDao(), db)
                     )
                     MusiciansScreen(
                         vm = vm,
                         onAdd = {
                             editingMusician = null
-                            screen = Screen.MusicianForm
+                            navigateTo(Screen.MusicianForm)
                         },
                         onEdit = { musician ->
                             editingMusician = musician
-                            screen = Screen.MusicianForm
+                            navigateTo(Screen.MusicianForm)
                         }
                     )
                 }
                 is Screen.MusicianForm -> {
                     val vm: MusiciansViewModel = viewModel(
-                        factory = MusiciansViewModel.factory(db.musicianDao())
+                        factory = MusiciansViewModel.factory(db.musicianDao(), db)
                     )
                     MusicianFormScreen(
                         initial = editingMusician,
                         onSave = { musician ->
                             vm.save(musician)
                             editingMusician = null
-                            screen = Screen.Musicians
+                            goBack()
                         },
                         onDelete = { musician ->
                             vm.delete(musician)
                             editingMusician = null
-                            screen = Screen.Musicians
+                            goBack()
                         },
                         onCancel = {
                             editingMusician = null
-                            screen = Screen.Musicians
+                            goBack()
                         }
                     )
                 }
@@ -446,7 +477,7 @@ fun AppContent(
                     )
                     ManageMomentsScreen(
                         vm = vm,
-                        onBack = { screen = returnAfterMoments }
+                        onBack = { goBack() }
                     )
                 }
             }
