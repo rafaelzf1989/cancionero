@@ -21,5 +21,6 @@ data class Song(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val moment: String? = null,
-    val tags: String? = null
+    val tags: String? = null,
+    val lyrics: String? = null
 )
