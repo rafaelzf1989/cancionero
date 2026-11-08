@@ -183,11 +183,10 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                         factory = SetlistsViewModel.factory(db.setlistDao())
                     )
                     SetlistsScreen(
-                        vm = vm,
-                        onOpenSetlist = { sl -> screen = Screen.SetlistDetail(sl.id) },
-                        onCreateSetlist = { name -> vm.create(name) },
-                        onImportClick = { screen = Screen.ImportSetlist }
-                    )
+    vm = vm,
+    onOpenSetlist = { sl -> screen = Screen.SetlistDetail(sl.id) },
+    onImportClick = { screen = Screen.ImportSetlist }
+)
                 }
                 is Screen.SetlistDetail -> {
                     val vm: SetlistDetailViewModel = viewModel(
