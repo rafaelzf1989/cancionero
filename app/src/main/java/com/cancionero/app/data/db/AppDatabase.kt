@@ -7,19 +7,21 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.cancionero.app.data.model.Culto
+import com.cancionero.app.data.model.Moment
 import com.cancionero.app.data.model.Setlist
 import com.cancionero.app.data.model.SetlistSong
 import com.cancionero.app.data.model.Song
 
 @Database(
-    entities = [Song::class, Setlist::class, SetlistSong::class, Culto::class],
-    version = 3,
+    entities = [Song::class, Setlist::class, SetlistSong::class, Culto::class, Moment::class],
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao
     abstract fun setlistDao(): SetlistDao
     abstract fun cultoDao(): CultoDao
+    abstract fun momentDao(): MomentDao
 
     companion object {
         @Volatile
@@ -38,13 +40,34 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `moments` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`position` INTEGER NOT NULL)"
+                )
+                val defaults = listOf(
+                    "Entrada", "Adoración", "Alabanza", "Ofrenda",
+                    "Comunión", "Especial", "Despedida"
+                )
+                defaults.forEachIndexed { idx, name ->
+                    db.execSQL(
+                        "INSERT INTO moments (name, position) VALUES (?, ?)",
+                        arrayOf(name, idx)
+                    )
+                }
+            }
+        }
+
         fun get(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "cancionero.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build().also { INSTANCE = it }
             }
         }
