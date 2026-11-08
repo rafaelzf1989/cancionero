@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import com.cancionero.app.data.model.Musician
 import com.cancionero.app.data.model.Song
 import java.io.File
 
@@ -37,7 +38,6 @@ object ShareHelper {
             }
             context.startActivity(Intent.createChooser(intent, "Compartir setlist"))
         } catch (e: Exception) {
-            // silencioso
         }
     }
 
@@ -108,7 +108,6 @@ object ShareHelper {
             }
             context.startActivity(Intent.createChooser(intent, "Compartir canciones"))
         } catch (e: Exception) {
-            // silencioso
         }
     }
 
@@ -129,8 +128,57 @@ object ShareHelper {
                 }
                 context.startActivity(smsIntent)
             } catch (e2: Exception) {
-                // nada
             }
         }
+    }
+
+    /** Compartir como texto por cualquier app (chooser). */
+    fun shareTextMessage(context: Context, message: String, subject: String? = null) {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, message)
+            subject?.let { putExtra(Intent.EXTRA_SUBJECT, it) }
+        }
+        context.startActivity(Intent.createChooser(intent, "Compartir"))
+    }
+
+    /** Compartir intentando abrir WhatsApp directamente; si falla, chooser general. */
+    fun shareViaWhatsApp(context: Context, message: String) {
+        val waIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, message)
+            setPackage("com.whatsapp")
+        }
+        try {
+            context.startActivity(waIntent)
+            return
+        } catch (_: Exception) { }
+        val waBizIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, message)
+            setPackage("com.whatsapp.w4b")
+        }
+        try {
+            context.startActivity(waBizIntent)
+            return
+        } catch (_: Exception) { }
+        shareTextMessage(context, message)
+    }
+
+    /** Compartir todos los datos de un músico (chooser). */
+    fun shareMusician(context: Context, musician: Musician) {
+        val text = buildString {
+            appendLine("🎵 Músico: ${musician.name}")
+            appendLine("🎭 Roles: ${musician.roles}")
+            musician.phone?.takeIf { it.isNotBlank() }?.let {
+                appendLine("📱 Teléfono: $it")
+            }
+            musician.notes?.takeIf { it.isNotBlank() }?.let {
+                appendLine("📝 Notas: $it")
+            }
+            appendLine()
+            append("— Enviado desde Cancionero")
+        }
+        shareTextMessage(context, text, "Músico: ${musician.name}")
     }
 }
