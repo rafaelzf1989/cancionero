@@ -29,6 +29,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun cultoDao(): CultoDao
     abstract fun momentDao(): MomentDao
     abstract fun musicianDao(): MusicianDao
+    abstract fun backupDao(): BackupDao
 
     companion object {
         @Volatile
