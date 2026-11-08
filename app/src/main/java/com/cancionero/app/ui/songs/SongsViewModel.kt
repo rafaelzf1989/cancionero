@@ -21,7 +21,9 @@ data class SongFilters(
     val onlyLaCuerda: Boolean = false,
     val onlyCancionero: Boolean = false,
     val onlyLibreta: Boolean = false,
-    val onlyFavorites: Boolean = false
+    val onlyFavorites: Boolean = false,
+    val moment: String? = null,
+    val tag: String? = null
 )
 
 class SongsViewModel(private val dao: SongDao) : ViewModel() {
@@ -42,6 +44,11 @@ class SongsViewModel(private val dao: SongDao) : ViewModel() {
         if (f.onlyCancionero && !song.sourceCancionero) return false
         if (f.onlyLibreta && song.libretaNumber == null) return false
         if (f.onlyFavorites && !song.isFavorite) return false
+        if (f.moment != null && song.moment != f.moment) return false
+        if (f.tag != null && f.tag.isNotBlank()) {
+            val tags = song.tags?.split(",")?.map { it.trim().lowercase() } ?: emptyList()
+            if (tags.none { it == f.tag.lowercase() }) return false
+        }
         return true
     }
 
@@ -52,6 +59,8 @@ class SongsViewModel(private val dao: SongDao) : ViewModel() {
     fun toggleCancionero() = _filters.update { it.copy(onlyCancionero = !it.onlyCancionero) }
     fun toggleLibreta() = _filters.update { it.copy(onlyLibreta = !it.onlyLibreta) }
     fun toggleFavorites() = _filters.update { it.copy(onlyFavorites = !it.onlyFavorites) }
+    fun setMoment(m: String?) = _filters.update { it.copy(moment = m) }
+    fun setTag(t: String?) = _filters.update { it.copy(tag = t) }
     fun clearFilters() { _filters.value = SongFilters() }
 
     fun save(song: Song) {
@@ -62,6 +71,18 @@ class SongsViewModel(private val dao: SongDao) : ViewModel() {
 
     fun delete(song: Song) {
         viewModelScope.launch { dao.delete(song) }
+    }
+
+    fun duplicate(song: Song) {
+        viewModelScope.launch {
+            val copy = song.copy(
+                id = 0,
+                title = "${song.title} (copia)",
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis()
+            )
+            dao.insert(copy)
+        }
     }
 
     fun toggleFavorite(song: Song) {
