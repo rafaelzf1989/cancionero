@@ -60,6 +60,12 @@ interface SetlistDao {
     @Query("UPDATE setlist_songs SET position = :pos WHERE setlistId = :setlistId AND songId = :songId")
     suspend fun updatePosition(setlistId: Long, songId: Long, pos: Int)
 
+    @Query("SELECT note FROM setlist_songs WHERE setlistId = :setlistId AND songId = :songId")
+    suspend fun getNoteFor(setlistId: Long, songId: Long): String?
+
+    @Query("UPDATE setlist_songs SET note = :note WHERE setlistId = :setlistId AND songId = :songId")
+    suspend fun updateNote(setlistId: Long, songId: Long, note: String?)
+
     @Query("SELECT COUNT(*) FROM setlists")
     suspend fun count(): Int
 }
