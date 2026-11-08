@@ -2,6 +2,7 @@ package com.cancionero.app.share
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.content.FileProvider
 import com.cancionero.app.data.model.Song
 import java.io.File
@@ -63,5 +64,27 @@ object ShareHelper {
             putExtra(Intent.EXTRA_TEXT, text)
         }
         context.startActivity(Intent.createChooser(intent, "Compartir canción"))
+    }
+
+    fun openWhatsApp(context: Context, phone: String, message: String) {
+        val cleanPhone = phone.replace(Regex("[^0-9+]"), "")
+        if (cleanPhone.isBlank()) return
+        val url = "https://wa.me/$cleanPhone?text=${Uri.encode(message)}"
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                val smsIntent = Intent(
+                    Intent.ACTION_SENDTO,
+                    Uri.parse("smsto:$cleanPhone")
+                ).apply {
+                    putExtra("sms_body", message)
+                }
+                context.startActivity(smsIntent)
+            } catch (e2: Exception) {
+                // nada
+            }
+        }
     }
 }
