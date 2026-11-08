@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -45,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.cancionero.app.data.model.Moment
 import com.cancionero.app.data.model.Song
 import com.cancionero.app.share.ShareHelper
+import com.cancionero.app.ui.settings.AppSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,7 +57,8 @@ fun SongFormScreen(
     onDelete: (Song) -> Unit,
     onDuplicate: (Song) -> Unit,
     onManageMoments: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onPreview: (Song) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -72,6 +75,9 @@ fun SongFormScreen(
     var tags by remember { mutableStateOf(initial?.tags ?: "") }
     var lyrics by remember { mutableStateOf(initial?.lyrics ?: "") }
 
+    val chordColor = AppSettings.getChordColor(context)
+    val sectionColor = AppSettings.getSectionColor(context)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -82,29 +88,42 @@ fun SongFormScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = {
-                            val song = Song(
-                                id = initial?.id ?: 0,
-                                title = title.trim(),
-                                tempoBpm = tempoBpm.toIntOrNull(),
-                                tempoText = tempoText.ifBlank { null },
-                                songKey = songKey.trim().ifBlank { "C" },
-                                sourceLaCuerda = sourceLaCuerda,
-                                sourceCancionero = sourceCancionero,
-                                libretaNumber = if (sourceLibreta) libretaNumber.toIntOrNull() else null,
-                                notes = notes.ifBlank { null },
-                                isFavorite = initial?.isFavorite ?: false,
-                                usageCount = initial?.usageCount ?: 0,
-                                createdAt = initial?.createdAt ?: System.currentTimeMillis(),
-                                updatedAt = System.currentTimeMillis(),
-                                moment = moment,
-                                tags = tags.ifBlank { null },
-                                lyrics = lyrics.ifBlank { null }
-                            )
-                            ShareHelper.shareSong(context, song)
-                        }
-                    ) {
+                    IconButton(onClick = {
+                        val tempSong = Song(
+                            id = initial?.id ?: 0,
+                            title = title.trim(),
+                            tempoBpm = tempoBpm.toIntOrNull(),
+                            tempoText = tempoText.ifBlank { null },
+                            songKey = songKey.trim().ifBlank { "C" },
+                            notes = notes.ifBlank { null },
+                            moment = moment,
+                            lyrics = lyrics.ifBlank { null }
+                        )
+                        onPreview(tempSong)
+                    }) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = "Vista previa")
+                    }
+                    IconButton(onClick = {
+                        val song = Song(
+                            id = initial?.id ?: 0,
+                            title = title.trim(),
+                            tempoBpm = tempoBpm.toIntOrNull(),
+                            tempoText = tempoText.ifBlank { null },
+                            songKey = songKey.trim().ifBlank { "C" },
+                            sourceLaCuerda = sourceLaCuerda,
+                            sourceCancionero = sourceCancionero,
+                            libretaNumber = if (sourceLibreta) libretaNumber.toIntOrNull() else null,
+                            notes = notes.ifBlank { null },
+                            isFavorite = initial?.isFavorite ?: false,
+                            usageCount = initial?.usageCount ?: 0,
+                            createdAt = initial?.createdAt ?: System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis(),
+                            moment = moment,
+                            tags = tags.ifBlank { null },
+                            lyrics = lyrics.ifBlank { null }
+                        )
+                        ShareHelper.shareSong(context, song)
+                    }) {
                         Icon(Icons.Default.Share, contentDescription = "Compartir")
                     }
                     if (initial != null) {
@@ -247,10 +266,11 @@ fun SongFormScreen(
                 onValueChange = { lyrics = it },
                 label = { Text("Letra y Acordes (estilo Holyrics)") },
                 placeholder = { 
-                    Text("Usa ## para secciones y // para acordes:\n##(Coro)\n//D/F#  G\nQue todo lo que soy") 
+                    Text("##Coro\n//G D\nQue todo lo que soy\n//Em C\nBendiga al Señor") 
                 },
                 modifier = Modifier.fillMaxWidth(),
-                minLines = 8
+                minLines = 12,
+                visualTransformation = HolyricsVisualTransformation(chordColor, sectionColor)
             )
 
             Button(
