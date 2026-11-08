@@ -70,6 +70,7 @@ import kotlinx.coroutines.delay
 sealed interface Screen {
     data object Repertorio : Screen
     data object SongForm : Screen
+    data class SongPreview(val song: Song) : Screen
     data object Setlists : Screen
     data class SetlistDetail(val id: Long) : Screen
     data object ImportSetlist : Screen
@@ -142,12 +143,10 @@ fun AppContent(
 ) {
     val context = LocalContext.current
 
-    // ---- Navegación con back stack ----
     var screen by remember { mutableStateOf<Screen>(Screen.Cultos) }
     var previousScreens by remember { mutableStateOf<List<Screen>>(emptyList()) }
     var backPressedOnce by remember { mutableStateOf(false) }
 
-    // ---- Estados de edición ----
     var editingSong by remember { mutableStateOf<Song?>(null) }
     var editingCulto by remember { mutableStateOf<Culto?>(null) }
     var editingMusician by remember { mutableStateOf<Musician?>(null) }
@@ -186,7 +185,7 @@ fun AppContent(
     if (!customBackHandlerScreens) {
         BackHandler {
             if (goBack()) {
-                // ok, navegamos atrás
+                // ok
             } else if (screen is Screen.Cultos) {
                 if (backPressedOnce) {
                     (context as? Activity)?.finish()
@@ -260,6 +259,9 @@ fun AppContent(
                         },
                         onManageMoments = {
                             navigateTo(Screen.ManageMoments)
+                        },
+                        onPreviewSong = { song ->
+                            navigateTo(Screen.SongPreview(song))
                         }
                     )
                 }
@@ -292,7 +294,18 @@ fun AppContent(
                         onCancel = {
                             editingSong = null
                             goBack()
+                        },
+                        onPreview = { song ->
+                            navigateTo(Screen.SongPreview(song))
                         }
+                    )
+                }
+                is Screen.SongPreview -> {
+                    StageScreen(
+                        cultoName = "Vista previa",
+                        songs = listOf(s.song),
+                        startIndex = 0,
+                        onBack = { goBack() }
                     )
                 }
                 is Screen.Setlists -> {
