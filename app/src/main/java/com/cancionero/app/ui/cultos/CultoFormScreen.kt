@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -46,7 +47,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,12 +57,23 @@ import com.cancionero.app.data.model.Culto
 import com.cancionero.app.data.model.Musician
 import com.cancionero.app.data.model.Setlist
 import com.cancionero.app.share.ShareHelper
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+
+private val ALL_ROLES_ORDER = listOf(
+    "Voz", "Voz líder", "Voz de coro",
+    "Guitarra", "Bajo", "Batería",
+    "Teclado", "Piano"
+)
+
+private fun sortRoles(roles: Collection<String>): List<String> =
+    roles.sortedBy { role ->
+        val idx = ALL_ROLES_ORDER.indexOf(role)
+        if (idx >= 0) idx else Int.MAX_VALUE
+    }
 
 private fun toMidnight(millis: Long): Long {
     val cal = Calendar.getInstance()
@@ -162,7 +173,6 @@ fun CultoFormScreen(
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var leader by remember { mutableStateOf(initial?.leader ?: "") }
@@ -209,8 +219,40 @@ fun CultoFormScreen(
         }
     }
 
-    fun defaultRolesFor(musician: Musician): Set<String> =
-        musician.rolesList().toSet()
+    fun defaultRolesFor(musician: Musician): Set<String> = musician.rolesList().toSet()
+
+    fun buildFullCultoMessage(): String {
+        val fechaStr = formatDateButton(dateMidnight)
+        val horaStr = formatTimeButton(hour, minute)
+        val setlistNames = orderedSetlistIds.mapNotNull { slId ->
+            setlists.find { it.id == slId }?.name
+        }
+        val sb = StringBuilder()
+        sb.appendLine("🎵 Culto: ${name.ifBlank { "(sin nombre)" }}")
+        sb.appendLine("📅 Fecha: $fechaStr")
+        sb.appendLine("🕐 Hora: $horaStr")
+        if (leader.isNotBlank()) sb.appendLine("👤 Líder: ${leader.trim()}")
+        if (setlistNames.isNotEmpty()) {
+            sb.appendLine()
+            sb.appendLine("🎼 Setlists:")
+            setlistNames.forEach { sb.appendLine("• $it") }
+        }
+        if (selectedMusicianIds.isNotEmpty()) {
+            sb.appendLine()
+            sb.appendLine("👥 Músicos:")
+            selectedMusicianIds
+                .mapNotNull { mId -> allMusicians.find { it.id == mId } }
+                .sortedBy { it.name.lowercase() }
+                .forEach { m ->
+                    val roles = musicianRoles[m.id]?.let { sortRoles(it) }
+                        ?: sortRoles(m.rolesList())
+                    sb.appendLine("• ${m.name}: ${roles.joinToString(", ")}")
+                }
+        }
+        sb.appendLine()
+        sb.append("— Enviado desde Cancionero")
+        return sb.toString()
+    }
 
     Scaffold(
         topBar = {
@@ -219,6 +261,13 @@ fun CultoFormScreen(
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
                         Icon(Icons.Default.Close, contentDescription = "Cancelar")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        ShareHelper.shareViaWhatsApp(context, buildFullCultoMessage())
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Compartir culto")
                     }
                 }
             )
@@ -342,7 +391,7 @@ fun CultoFormScreen(
             } else {
                 allMusicians.forEach { m ->
                     val isSelected = m.id in selectedMusicianIds
-                    val mRoles = m.rolesList()
+                    val mRoles = sortRoles(m.rolesList())
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -371,23 +420,35 @@ fun CultoFormScreen(
                         )
                         Column(Modifier.weight(1f)) {
                             Text(m.name)
-                            Text(m.roles, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                sortRoles(m.rolesList()).joinToString(", "),
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                         if (!m.phone.isNullOrBlank()) {
                             IconButton(onClick = {
-                                val fechaStr = formatDateTime(
-                                    combineDateAndTime(dateMidnight, hour, minute)
-                                )
+                                val fechaStr = formatDateButton(dateMidnight)
+                                val horaStr = formatTimeButton(hour, minute)
+                                val roles = musicianRoles[m.id]?.let { sortRoles(it) }
+                                    ?: sortRoles(m.rolesList())
+                                val setlistNames = orderedSetlistIds.mapNotNull { slId ->
+                                    setlists.find { it.id == slId }?.name
+                                }
                                 val msg = buildString {
-                                    append("Hola ")
-                                    append(m.name)
-                                    append(", te recuerdo que tocas el ")
-                                    append(fechaStr)
-                                    if (name.isNotBlank()) {
-                                        append(" en ")
-                                        append(name.trim())
+                                    appendLine("Hola ${m.name}, te recuerdo tu participación en el culto:")
+                                    appendLine()
+                                    appendLine("🎵 Culto: ${name.ifBlank { "(sin nombre)" }}")
+                                    appendLine("📅 Fecha: $fechaStr")
+                                    appendLine("🕐 Hora: $horaStr")
+                                    if (leader.isNotBlank()) {
+                                        appendLine("👤 Líder: ${leader.trim()}")
                                     }
-                                    append(".")
+                                    appendLine("🎭 Tu rol: ${roles.joinToString(", ")}")
+                                    if (setlistNames.isNotEmpty()) {
+                                        appendLine("🎼 Setlists: ${setlistNames.joinToString(", ")}")
+                                    }
+                                    appendLine()
+                                    append("— Enviado desde Cancionero")
                                 }
                                 ShareHelper.openWhatsApp(context, m.phone!!, msg)
                             }) {
@@ -436,7 +497,8 @@ fun CultoFormScreen(
                         val m = allMusicians.find { it.id == mId }
                         val mRoles = m?.rolesList()?.toSet() ?: emptySet()
                         val sel = musicianRoles[mId] ?: mRoles
-                        val roleStr = if (sel == mRoles) null else sel.joinToString(",").ifBlank { null }
+                        val roleStr = if (sel == mRoles) null
+                            else sortRoles(sel).joinToString(",").ifBlank { null }
                         mId to roleStr
                     }
                     onSave(
