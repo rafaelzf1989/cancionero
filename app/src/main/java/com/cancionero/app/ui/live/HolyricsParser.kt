@@ -21,31 +21,39 @@ object HolyricsParser {
         var i = 0
         while (i < lines.size) {
             val rawLine = lines[i]
-            val line = rawLine.trimEnd()
             
-            if (line.trim().startsWith("##")) {
+            // REGLA: Si empieza con // es acorde. No importa si hay espacios antes.
+            // El usuario especificó: "si la linea comienza con al menos una letra o un espacio... no cuenta".
+            // Por lo tanto, evaluamos rawLine directamente.
+            if (rawLine.startsWith("##")) {
                 if (currentLines.isNotEmpty()) {
                     sections.add(HolyricsSection(currentTitle, currentLines.toList()))
                     currentLines.clear()
                 }
-                var title = line.trim().removePrefix("##").trim()
+                // Quitamos ## y paréntesis si los tiene, pero no obligamos a tenerlos.
+                var title = rawLine.substring(2).trim()
                 if (title.startsWith("(") && title.endsWith(")")) {
-                    title = title.removeSurrounding("(", ")").trim()
+                    title = title.substring(1, title.length - 1).trim()
                 }
                 currentTitle = title.ifBlank { "Sección" }
-            } else if (line.trim().startsWith("//")) {
-                val chords = line.trim().removePrefix("//").trimEnd()
+            } else if (rawLine.startsWith("//")) {
+                // Es línea de acordes. Guardamos todo lo que sigue después de //
+                val chords = rawLine.substring(2)
                 var lyricsLine = ""
+                // Buscamos hacia adelante si la siguiente línea es de letra pura
                 if (i + 1 < lines.size) {
-                    val next = lines[i + 1].trimEnd()
-                    if (!next.trim().startsWith("##") && !next.trim().startsWith("//")) {
+                    val next = lines[i + 1]
+                    if (!next.startsWith("##") && !next.startsWith("//")) {
                         lyricsLine = next
                         i++
                     }
                 }
                 currentLines.add(HolyricsLine(chords, lyricsLine))
-            } else if (line.isNotBlank()) {
-                currentLines.add(HolyricsLine("", line))
+            } else {
+                // Es línea de letras (incluso si está vacía)
+                if (rawLine.isNotBlank()) {
+                    currentLines.add(HolyricsLine("", rawLine))
+                }
             }
             i++
         }
