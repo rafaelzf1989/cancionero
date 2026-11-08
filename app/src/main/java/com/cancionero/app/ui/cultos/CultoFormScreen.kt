@@ -1,5 +1,6 @@
 package com.cancionero.app.ui.cultos
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,20 +9,24 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +57,7 @@ import com.cancionero.app.data.model.Culto
 import com.cancionero.app.data.model.Musician
 import com.cancionero.app.data.model.Setlist
 import com.cancionero.app.share.ShareHelper
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -150,11 +157,12 @@ fun CultoFormScreen(
     initial: Culto?,
     setlists: List<Setlist>,
     allMusicians: List<Musician>,
-    onSave: (Culto, List<Long>) -> Unit,
+    onSave: (Culto, List<Long>, Map<Long, String?>, List<Long>) -> Unit,
     onDelete: (Culto) -> Unit,
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var leader by remember { mutableStateOf(initial?.leader ?: "") }
@@ -169,20 +177,40 @@ fun CultoFormScreen(
     var minute by remember {
         mutableStateOf(initial?.let { getMinute(it.dateMillis) } ?: 0)
     }
-    var setlistId by remember { mutableStateOf(initial?.setlistId) }
-    var setlistExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var showSetlistDialog by remember { mutableStateOf(false) }
 
+    var orderedSetlistIds by remember { mutableStateOf<List<Long>>(emptyList()) }
     var selectedMusicianIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var musicianRoles by remember {
+        mutableStateOf<Map<Long, Set<String>>>(emptyMap())
+    }
 
-    LaunchedEffect(initial?.id) {
+    LaunchedEffect(initial?.id, allMusicians) {
         if (initial != null && initial.id > 0) {
-            selectedMusicianIds = vm.getMusicianIdsFor(initial.id).toSet()
+            orderedSetlistIds = vm.getSetlistIdsFor(initial.id)
+            val ids = vm.getMusicianIdsFor(initial.id).toSet()
+            val rolesMap = vm.getMusicianRolesFor(initial.id)
+            selectedMusicianIds = ids
+            val newRoles = mutableMapOf<Long, Set<String>>()
+            ids.forEach { mId ->
+                val musician = allMusicians.find { it.id == mId }
+                if (musician != null) {
+                    val savedRoles = rolesMap[mId]
+                    newRoles[mId] = if (savedRoles.isNullOrBlank()) {
+                        musician.rolesList().toSet()
+                    } else {
+                        savedRoles.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+                    }
+                }
+            }
+            musicianRoles = newRoles
         }
     }
 
-    val validSetlistId = setlistId?.takeIf { id -> setlists.any { it.id == id } }
+    fun defaultRolesFor(musician: Musician): Set<String> =
+        musician.rolesList().toSet()
 
     Scaffold(
         topBar = {
@@ -237,36 +265,68 @@ fun CultoFormScreen(
                 Text(formatTimeButton(hour, minute))
             }
 
-            Text("Setlist asignado", style = MaterialTheme.typography.labelLarge)
-            Box {
-                OutlinedButton(
-                    onClick = { setlistExpanded = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        setlists.find { it.id == validSetlistId }?.name
-                            ?: "Sin asignar"
-                    )
+            HorizontalDivider()
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Setlists", style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { showSetlistDialog = true }) {
+                    Text("Añadir / quitar")
                 }
-                DropdownMenu(
-                    expanded = setlistExpanded,
-                    onDismissRequest = { setlistExpanded = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Sin asignar") },
-                        onClick = {
-                            setlistId = null
-                            setlistExpanded = false
-                        }
-                    )
-                    setlists.forEach { sl ->
-                        DropdownMenuItem(
-                            text = { Text(sl.name) },
-                            onClick = {
-                                setlistId = sl.id
-                                setlistExpanded = false
+            }
+
+            if (orderedSetlistIds.isEmpty()) {
+                Text(
+                    "Sin setlists asignados.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                orderedSetlistIds.forEachIndexed { idx, slId ->
+                    val sl = setlists.find { it.id == slId }
+                    if (sl != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "${idx + 1}. ${sl.name}",
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            IconButton(
+                                onClick = {
+                                    if (idx > 0) {
+                                        val mutable = orderedSetlistIds.toMutableList()
+                                        val tmp = mutable[idx - 1]
+                                        mutable[idx - 1] = mutable[idx]
+                                        mutable[idx] = tmp
+                                        orderedSetlistIds = mutable
+                                    }
+                                },
+                                enabled = idx > 0
+                            ) {
+                                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Subir")
                             }
-                        )
+                            IconButton(
+                                onClick = {
+                                    if (idx < orderedSetlistIds.size - 1) {
+                                        val mutable = orderedSetlistIds.toMutableList()
+                                        val tmp = mutable[idx + 1]
+                                        mutable[idx + 1] = mutable[idx]
+                                        mutable[idx] = tmp
+                                        orderedSetlistIds = mutable
+                                    }
+                                },
+                                enabled = idx < orderedSetlistIds.size - 1
+                            ) {
+                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Bajar")
+                            }
+                            IconButton(onClick = {
+                                orderedSetlistIds = orderedSetlistIds - slId
+                            }) {
+                                Icon(Icons.Default.Close, contentDescription = "Quitar")
+                            }
+                        }
                     }
                 }
             }
@@ -281,29 +341,37 @@ fun CultoFormScreen(
                 )
             } else {
                 allMusicians.forEach { m ->
+                    val isSelected = m.id in selectedMusicianIds
+                    val mRoles = m.rolesList()
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedMusicianIds = if (isSelected) {
+                                    musicianRoles = musicianRoles - m.id
+                                    selectedMusicianIds - m.id
+                                } else {
+                                    musicianRoles = musicianRoles + (m.id to defaultRolesFor(m))
+                                    selectedMusicianIds + m.id
+                                }
+                            },
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
-                            checked = m.id in selectedMusicianIds,
+                            checked = isSelected,
                             onCheckedChange = {
-                                selectedMusicianIds = if (m.id in selectedMusicianIds)
+                                selectedMusicianIds = if (isSelected) {
+                                    musicianRoles = musicianRoles - m.id
                                     selectedMusicianIds - m.id
-                                else
+                                } else {
+                                    musicianRoles = musicianRoles + (m.id to defaultRolesFor(m))
                                     selectedMusicianIds + m.id
+                                }
                             }
                         )
                         Column(Modifier.weight(1f)) {
                             Text(m.name)
-                            val sub = buildString {
-                                append(m.role)
-                                if (!m.phone.isNullOrBlank()) {
-                                    append(" · ")
-                                    append(m.phone)
-                                }
-                            }
-                            Text(sub, style = MaterialTheme.typography.bodySmall)
+                            Text(m.roles, style = MaterialTheme.typography.bodySmall)
                         }
                         if (!m.phone.isNullOrBlank()) {
                             IconButton(onClick = {
@@ -327,6 +395,36 @@ fun CultoFormScreen(
                             }
                         }
                     }
+                    if (isSelected && mRoles.size > 1) {
+                        val selected = musicianRoles[m.id] ?: mRoles.toSet()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 48.dp, top = 4.dp, bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                "En este culto:",
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.align(Alignment.CenterVertically)
+                            )
+                            mRoles.forEach { role ->
+                                FilterChip(
+                                    selected = role in selected,
+                                    onClick = {
+                                        val newSet = if (role in selected) {
+                                            val s = selected - role
+                                            if (s.isEmpty()) mRoles.toSet() else s
+                                        } else {
+                                            selected + role
+                                        }
+                                        musicianRoles = musicianRoles + (m.id to newSet)
+                                    },
+                                    label = { Text(role) }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -334,15 +432,23 @@ fun CultoFormScreen(
 
             Button(
                 onClick = {
+                    val rolesMap: Map<Long, String?> = selectedMusicianIds.associate { mId ->
+                        val m = allMusicians.find { it.id == mId }
+                        val mRoles = m?.rolesList()?.toSet() ?: emptySet()
+                        val sel = musicianRoles[mId] ?: mRoles
+                        val roleStr = if (sel == mRoles) null else sel.joinToString(",").ifBlank { null }
+                        mId to roleStr
+                    }
                     onSave(
                         Culto(
                             id = initial?.id ?: 0,
                             name = name.trim(),
                             dateMillis = combineDateAndTime(dateMidnight, hour, minute),
-                            setlistId = validSetlistId,
                             leader = leader.trim().ifBlank { null }
                         ),
-                        selectedMusicianIds.toList()
+                        selectedMusicianIds.toList(),
+                        rolesMap,
+                        orderedSetlistIds
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -422,5 +528,81 @@ fun CultoFormScreen(
                 }
             }
         }
+
+        if (showSetlistDialog) {
+            SetlistPickerDialog(
+                setlists = setlists,
+                currentIds = orderedSetlistIds,
+                onDismiss = { showSetlistDialog = false },
+                onApply = { newIds ->
+                    orderedSetlistIds = newIds
+                    showSetlistDialog = false
+                }
+            )
+        }
     }
+}
+
+@Composable
+private fun SetlistPickerDialog(
+    setlists: List<Setlist>,
+    currentIds: List<Long>,
+    onDismiss: () -> Unit,
+    onApply: (List<Long>) -> Unit
+) {
+    val currentSet = currentIds.toSet()
+    var selected by remember { mutableStateOf(currentSet) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Seleccionar setlists") },
+        text = {
+            if (setlists.isEmpty()) {
+                Text("No hay setlists creados.")
+            } else {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    setlists.forEach { sl ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selected = if (sl.id in selected)
+                                        selected - sl.id
+                                    else
+                                        selected + sl.id
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = sl.id in selected,
+                                onCheckedChange = {
+                                    selected = if (sl.id in selected)
+                                        selected - sl.id
+                                    else
+                                        selected + sl.id
+                                }
+                            )
+                            Text(sl.name)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val result = mutableListOf<Long>()
+                currentIds.filter { it in selected }.forEach { result.add(it) }
+                selected.filter { it !in currentSet }.forEach { result.add(it) }
+                onApply(result)
+            }) { Text("Aplicar") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
 }
