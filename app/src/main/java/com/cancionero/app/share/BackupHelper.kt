@@ -5,6 +5,7 @@ import android.net.Uri
 import com.cancionero.app.data.db.AppDatabase
 import com.cancionero.app.data.model.Culto
 import com.cancionero.app.data.model.CultoMusician
+import com.cancionero.app.data.model.CultoSetlist
 import com.cancionero.app.data.model.Moment
 import com.cancionero.app.data.model.Musician
 import com.cancionero.app.data.model.Setlist
@@ -15,7 +16,7 @@ import kotlinx.serialization.json.Json
 
 @Serializable
 data class BackupData(
-    val version: Int = 1,
+    val version: Int = 2,
     val exportedAt: Long = System.currentTimeMillis(),
     val songs: List<Song> = emptyList(),
     val setlists: List<Setlist> = emptyList(),
@@ -23,7 +24,8 @@ data class BackupData(
     val cultos: List<Culto> = emptyList(),
     val moments: List<Moment> = emptyList(),
     val musicians: List<Musician> = emptyList(),
-    val cultoMusicians: List<CultoMusician> = emptyList()
+    val cultoMusicians: List<CultoMusician> = emptyList(),
+    val cultoSetlists: List<CultoSetlist> = emptyList()
 )
 
 object BackupHelper {
@@ -43,7 +45,8 @@ object BackupHelper {
             cultos = dao.getAllCultos(),
             moments = dao.getAllMoments(),
             musicians = dao.getAllMusicians(),
-            cultoMusicians = dao.getAllCultoMusicians()
+            cultoMusicians = dao.getAllCultoMusicians(),
+            cultoSetlists = dao.getAllCultoSetlists()
         )
         return json.encodeToString(BackupData.serializer(), data)
     }
@@ -52,6 +55,7 @@ object BackupHelper {
         return try {
             val data = json.decodeFromString(BackupData.serializer(), content)
             val dao = db.backupDao()
+            dao.clearCultoSetlists()
             dao.clearCultoMusicians()
             dao.clearSetlistSongs()
             dao.clearCultos()
@@ -66,6 +70,7 @@ object BackupHelper {
             if (data.musicians.isNotEmpty()) dao.insertMusicians(data.musicians)
             if (data.cultos.isNotEmpty()) dao.insertCultos(data.cultos)
             if (data.cultoMusicians.isNotEmpty()) dao.insertCultoMusicians(data.cultoMusicians)
+            if (data.cultoSetlists.isNotEmpty()) dao.insertCultoSetlists(data.cultoSetlists)
             Result.success(data)
         } catch (e: Exception) {
             Result.failure(e)
