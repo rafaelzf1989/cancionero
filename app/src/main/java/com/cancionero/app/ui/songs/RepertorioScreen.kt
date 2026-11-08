@@ -1,5 +1,6 @@
 package com.cancionero.app.ui.songs
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -38,10 +40,13 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -75,6 +80,7 @@ fun RepertorioScreen(
 
     var showFilters by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
+    var confirmDeleteSong by remember { mutableStateOf<Song?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val activeCount = filters.activeCount()
@@ -184,16 +190,71 @@ fun RepertorioScreen(
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(songs, key = { it.id }) { song ->
-                        SongRow(
-                            song = song,
-                            selectionMode = selectionMode,
-                            isSelected = song.id in selectedIds,
-                            onClick = {
-                                if (selectionMode) vm.toggleSelected(song.id)
-                                else onEditSong(song)
-                            },
-                            onToggleFavorite = { vm.toggleFavorite(song) }
-                        )
+                        if (selectionMode) {
+                            SongRow(
+                                song = song,
+                                selectionMode = true,
+                                isSelected = song.id in selectedIds,
+                                onClick = { vm.toggleSelected(song.id) },
+                                onToggleFavorite = { vm.toggleFavorite(song) }
+                            )
+                        } else {
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = { value ->
+                                    when (value) {
+                                        SwipeToDismissBoxValue.StartToEnd -> {
+                                            vm.toggleFavorite(song)
+                                            false
+                                        }
+                                        SwipeToDismissBoxValue.EndToStart -> {
+                                            confirmDeleteSong = song
+                                            false
+                                        }
+                                        else -> false
+                                    }
+                                }
+                            )
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                backgroundContent = {
+                                    val bg = when (dismissState.dismissDirection) {
+                                        SwipeToDismissBoxValue.StartToEnd ->
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        SwipeToDismissBoxValue.EndToStart ->
+                                            MaterialTheme.colorScheme.errorContainer
+                                        else -> MaterialTheme.colorScheme.surface
+                                    }
+                                    val align = when (dismissState.dismissDirection) {
+                                        SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                                        else -> Alignment.CenterEnd
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(bg)
+                                            .padding(horizontal = 24.dp),
+                                        contentAlignment = align
+                                    ) {
+                                        Icon(
+                                            imageVector =
+                                                if (dismissState.dismissDirection ==
+                                                    SwipeToDismissBoxValue.StartToEnd
+                                                ) Icons.Default.Star
+                                                else Icons.Default.Delete,
+                                            contentDescription = null
+                                        )
+                                    }
+                                }
+                            ) {
+                                SongRow(
+                                    song = song,
+                                    selectionMode = false,
+                                    isSelected = false,
+                                    onClick = { onEditSong(song) },
+                                    onToggleFavorite = { vm.toggleFavorite(song) }
+                                )
+                            }
+                        }
                         HorizontalDivider()
                     }
                 }
@@ -242,6 +303,28 @@ fun RepertorioScreen(
                         showShareDialog = false
                         vm.clearSelection()
                     }) { Text("Texto") }
+                }
+            )
+        }
+
+        confirmDeleteSong?.let { song ->
+            AlertDialog(
+                onDismissRequest = { confirmDeleteSong = null },
+                title = { Text("Eliminar canción") },
+                text = {
+                    Text(
+                        "¿Eliminar \"${song.title}\"? Se quitará también " +
+                            "de todos los setlists."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        vm.delete(song)
+                        confirmDeleteSong = null
+                    }) { Text("Eliminar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmDeleteSong = null }) { Text("Cancelar") }
                 }
             )
         }
@@ -383,6 +466,7 @@ private fun SongRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
