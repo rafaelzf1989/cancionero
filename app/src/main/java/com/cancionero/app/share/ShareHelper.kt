@@ -66,6 +66,52 @@ object ShareHelper {
         context.startActivity(Intent.createChooser(intent, "Compartir canción"))
     }
 
+    fun shareSongsList(context: Context, songs: List<Song>) {
+        if (songs.isEmpty()) return
+        val text = buildString {
+            appendLine("Repertorio (${songs.size} canciones)")
+            appendLine()
+            songs.forEachIndexed { i, s ->
+                val meta = buildString {
+                    append(s.songKey)
+                    s.tempoBpm?.let { append(" · $it BPM") }
+                    s.tempoText?.takeIf { it.isNotBlank() }?.let { append(" · $it") }
+                    s.moment?.let { append(" · $it") }
+                }
+                appendLine("${i + 1}. ${s.title} ($meta)")
+            }
+            appendLine()
+            appendLine("— Compartido con Cancionero")
+        }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "Repertorio")
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        context.startActivity(Intent.createChooser(intent, "Compartir canciones"))
+    }
+
+    fun shareSongsJson(context: Context, songs: List<Song>) {
+        try {
+            val json = SetlistShare.toJson("Repertorio", songs)
+            val file = File(context.cacheDir, "repertorio_${System.currentTimeMillis()}.json")
+            file.writeText(json)
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Compartir canciones"))
+        } catch (e: Exception) {
+            // silencioso
+        }
+    }
+
     fun openWhatsApp(context: Context, phone: String, message: String) {
         val cleanPhone = phone.replace(Regex("[^0-9+]"), "")
         if (cleanPhone.isBlank()) return
