@@ -245,7 +245,10 @@ fun SongFormScreen(
             OutlinedTextField(
                 value = lyrics,
                 onValueChange = { lyrics = it },
-                label = { Text("Letra de la canción") },
+                label = { Text("Letra y Acordes (estilo Holyrics)") },
+                placeholder = { 
+                    Text("Usa ## para secciones y // para acordes:\n##(Coro)\n//D/F#  G\nQue todo lo que soy") 
+                },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 8
             )
