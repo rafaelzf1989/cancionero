@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.cancionero.app.data.db.SetlistDao
 import com.cancionero.app.data.model.Setlist
+import com.cancionero.app.data.model.SetlistSong
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -14,9 +15,12 @@ class SetlistsViewModel(private val dao: SetlistDao) : ViewModel() {
 
     val setlists: StateFlow<List<Setlist>> =
         dao.observeAll().stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
+            viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+        )
+
+    val templates: StateFlow<List<Setlist>> =
+        dao.observeTemplates().stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
         )
 
     fun create(name: String) {
@@ -25,10 +29,36 @@ class SetlistsViewModel(private val dao: SetlistDao) : ViewModel() {
         }
     }
 
-    fun delete(setlist: Setlist) {
+    fun createFromTemplate(name: String, templateId: Long) {
         viewModelScope.launch {
-            dao.delete(setlist)
+            val newId = dao.insert(Setlist(name = name))
+            val songs = dao.getSongsOnce(templateId)
+            songs.forEachIndexed { idx, song ->
+                dao.addSong(SetlistSong(setlistId = newId, songId = song.id, position = idx))
+            }
         }
+    }
+
+    fun duplicate(setlist: Setlist) {
+        viewModelScope.launch {
+            val newId = dao.insert(
+                Setlist(name = "${setlist.name} (copia)", isTemplate = false)
+            )
+            val songs = dao.getSongsOnce(setlist.id)
+            songs.forEachIndexed { idx, song ->
+                dao.addSong(SetlistSong(setlistId = newId, songId = song.id, position = idx))
+            }
+        }
+    }
+
+    fun toggleTemplate(setlist: Setlist) {
+        viewModelScope.launch {
+            dao.update(setlist.copy(isTemplate = !setlist.isTemplate))
+        }
+    }
+
+    fun delete(setlist: Setlist) {
+        viewModelScope.launch { dao.delete(setlist) }
     }
 
     companion object {
