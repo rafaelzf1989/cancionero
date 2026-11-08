@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -76,7 +77,8 @@ internal fun formatDateTime(millis: Long): String =
 fun CultosScreen(
     vm: CultosViewModel,
     onCreateCulto: () -> Unit,
-    onEditCulto: (Culto) -> Unit
+    onEditCulto: (Culto) -> Unit,
+    onStartLive: (Long) -> Unit
 ) {
     val cultos by vm.cultos.collectAsState()
     val setlists by vm.setlists.collectAsState()
@@ -142,6 +144,7 @@ fun CultosScreen(
                                     )
                                 )
                             },
+                            onStartLive = { onStartLive(cwc.id) },
                             onDelete = { confirmDelete = cwc }
                         )
                         HorizontalDivider()
@@ -192,13 +195,14 @@ fun CultosScreen(
 private fun CultoRow(
     culto: CultoWithCount,
     onClick: () -> Unit,
+    onStartLive: () -> Unit,
     onDelete: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
@@ -228,6 +232,15 @@ private fun CultoRow(
                     meta,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        if (culto.setlistCount > 0) {
+            IconButton(onClick = onStartLive) {
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = "Entrar en vivo",
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
