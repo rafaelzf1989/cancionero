@@ -3,7 +3,9 @@ package com.cancionero.app.ui.songs
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.cancionero.app.data.db.MomentDao
 import com.cancionero.app.data.db.SongDao
+import com.cancionero.app.data.model.Moment
 import com.cancionero.app.data.model.Song
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,12 +26,32 @@ data class SongFilters(
     val onlyFavorites: Boolean = false,
     val moment: String? = null,
     val tag: String? = null
-)
+) {
+    fun activeCount(): Int {
+        var n = 0
+        if (key != null && key.isNotBlank()) n++
+        if (tempoText != null) n++
+        if (onlyLaCuerda) n++
+        if (onlyCancionero) n++
+        if (onlyLibreta) n++
+        if (onlyFavorites) n++
+        if (moment != null) n++
+        if (tag != null && tag.isNotBlank()) n++
+        return n
+    }
+}
 
-class SongsViewModel(private val dao: SongDao) : ViewModel() {
+class SongsViewModel(
+    private val dao: SongDao,
+    private val momentDao: MomentDao
+) : ViewModel() {
 
     private val _filters = MutableStateFlow(SongFilters())
     val filters: StateFlow<SongFilters> = _filters.asStateFlow()
+
+    val moments: StateFlow<List<Moment>> = momentDao.observeAll().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
 
     val filteredSongs: StateFlow<List<Song>> =
         combine(dao.observeAll(), _filters) { songs, f ->
@@ -90,11 +112,11 @@ class SongsViewModel(private val dao: SongDao) : ViewModel() {
     }
 
     companion object {
-        fun factory(dao: SongDao): ViewModelProvider.Factory =
+        fun factory(dao: SongDao, momentDao: MomentDao): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    SongsViewModel(dao) as T
+                    SongsViewModel(dao, momentDao) as T
             }
     }
 }
