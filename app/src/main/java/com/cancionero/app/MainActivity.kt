@@ -1,7 +1,10 @@
 package com.cancionero.app
 
+import android.app.Activity
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -23,6 +26,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cancionero.app.data.db.AppDatabase
 import com.cancionero.app.data.model.Culto
@@ -49,11 +56,13 @@ import com.cancionero.app.ui.setlists.SetlistDetailScreen
 import com.cancionero.app.ui.setlists.SetlistDetailViewModel
 import com.cancionero.app.ui.setlists.SetlistsScreen
 import com.cancionero.app.ui.setlists.SetlistsViewModel
+import com.cancionero.app.ui.settings.AppSettings
 import com.cancionero.app.ui.settings.SettingsScreen
 import com.cancionero.app.ui.settings.ThemePreference
 import com.cancionero.app.ui.songs.RepertorioScreen
 import com.cancionero.app.ui.songs.SongFormScreen
 import com.cancionero.app.ui.songs.SongsViewModel
+import kotlinx.coroutines.delay
 
 sealed interface Screen {
     data object Repertorio : Screen
@@ -81,32 +90,91 @@ class MainActivity : ComponentActivity() {
 fun AppRoot(db: AppDatabase) {
     val context = LocalContext.current
     var themeMode by remember { mutableStateOf(ThemePreference.getMode(context)) }
+    var fontScale by remember { mutableStateOf(AppSettings.getFontScale(context)) }
     val systemDark = isSystemInDarkTheme()
     val darkTheme = when (themeMode) {
         ThemePreference.MODE_LIGHT -> false
         ThemePreference.MODE_DARK -> true
         else -> systemDark
     }
+    val baseDensity = LocalDensity.current
 
-    MaterialTheme(
-        colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()
+    CompositionLocalProvider(
+        LocalDensity provides Density(
+            density = baseDensity.density,
+            fontScale = baseDensity.fontScale * fontScale
+        )
     ) {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            AppContent(db, themeMode) { newMode ->
-                ThemePreference.setMode(context, newMode)
-                themeMode = newMode
+        MaterialTheme(
+            colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()
+        ) {
+            Surface(modifier = Modifier.fillMaxSize()) {
+                AppContent(
+                    db = db,
+                    themeMode = themeMode,
+                    fontScale = fontScale,
+                    onThemeModeChanged = { newMode ->
+                        ThemePreference.setMode(context, newMode)
+                        themeMode = newMode
+                    },
+                    onFontScaleChanged = { newScale ->
+                        AppSettings.setFontScale(context, newScale)
+                        fontScale = newScale
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Unit) {
+fun AppContent(
+    db: AppDatabase,
+    themeMode: Int,
+    fontScale: Float,
+    onThemeModeChanged: (Int) -> Unit,
+    onFontScaleChanged: (Float) -> Unit
+) {
+    val context = LocalContext.current
     var screen by remember { mutableStateOf<Screen>(Screen.Repertorio) }
     var editingSong by remember { mutableStateOf<Song?>(null) }
     var editingCulto by remember { mutableStateOf<Culto?>(null) }
     var editingMusician by remember { mutableStateOf<Musician?>(null) }
     var returnAfterMoments by remember { mutableStateOf<Screen>(Screen.Repertorio) }
+    var backPressedOnce by remember { mutableStateOf(false) }
+
+    LaunchedEffect(screen) {
+        backPressedOnce = false
+    }
+    LaunchedEffect(backPressedOnce) {
+        if (backPressedOnce) {
+            delay(2000)
+            backPressedOnce = false
+        }
+    }
+
+    BackHandler {
+        when (screen) {
+            is Screen.Repertorio -> {
+                if (backPressedOnce) {
+                    (context as? Activity)?.finish()
+                } else {
+                    backPressedOnce = true
+                    Toast.makeText(
+                        context,
+                        "Pulsa atrás de nuevo para salir",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            else -> {
+                editingSong = null
+                editingCulto = null
+                editingMusician = null
+                screen = Screen.Repertorio
+            }
+        }
+    }
 
     val showBottomBar = screen is Screen.Repertorio ||
             screen is Screen.Setlists ||
@@ -328,7 +396,9 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                     SettingsScreen(
                         db = db,
                         currentMode = themeMode,
-                        onModeChanged = onThemeModeChanged
+                        currentFontScale = fontScale,
+                        onModeChanged = onThemeModeChanged,
+                        onFontScaleChanged = onFontScaleChanged
                     )
                 }
                 is Screen.ManageMoments -> {
