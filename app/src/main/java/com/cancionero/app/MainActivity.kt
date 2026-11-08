@@ -326,6 +326,7 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                 }
                 is Screen.Settings -> {
                     SettingsScreen(
+                        db = db,
                         currentMode = themeMode,
                         onModeChanged = onThemeModeChanged
                     )
