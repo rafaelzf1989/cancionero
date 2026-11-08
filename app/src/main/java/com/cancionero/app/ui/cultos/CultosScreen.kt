@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.cancionero.app.data.db.CultoWithCount
 import com.cancionero.app.data.model.Culto
 import com.cancionero.app.data.model.Setlist
 import java.text.SimpleDateFormat
@@ -80,7 +81,7 @@ fun CultosScreen(
     val cultos by vm.cultos.collectAsState()
     val setlists by vm.setlists.collectAsState()
     var showBulkAssign by remember { mutableStateOf(false) }
-    var confirmDelete by remember { mutableStateOf<Culto?>(null) }
+    var confirmDelete by remember { mutableStateOf<CultoWithCount?>(null) }
 
     val setlistsById = setlists.associateBy { it.id }
     val grouped = cultos
@@ -129,12 +130,22 @@ fun CultosScreen(
                         )
                         HorizontalDivider()
                     }
-                    items(dayCultos, key = { it.id }) { culto ->
+                    items(dayCultos, key = { it.id }) { cwc ->
                         CultoRow(
-                            culto = culto,
-                            setlistName = culto.setlistId?.let { setlistsById[it]?.name },
-                            onClick = { onEditCulto(culto) },
-                            onDelete = { confirmDelete = culto }
+                            culto = cwc,
+                            setlistName = cwc.setlistId?.let { setlistsById[it]?.name },
+                            onClick = {
+                                onEditCulto(
+                                    Culto(
+                                        id = cwc.id,
+                                        name = cwc.name,
+                                        dateMillis = cwc.dateMillis,
+                                        setlistId = cwc.setlistId,
+                                        leader = cwc.leader
+                                    )
+                                )
+                            },
+                            onDelete = { confirmDelete = cwc }
                         )
                         HorizontalDivider()
                     }
@@ -161,7 +172,15 @@ fun CultosScreen(
                 text = { Text("¿Eliminar \"${c.name}\"?") },
                 confirmButton = {
                     TextButton(onClick = {
-                        vm.delete(c)
+                        vm.delete(
+                            Culto(
+                                id = c.id,
+                                name = c.name,
+                                dateMillis = c.dateMillis,
+                                setlistId = c.setlistId,
+                                leader = c.leader
+                            )
+                        )
                         confirmDelete = null
                     }) { Text("Eliminar") }
                 },
@@ -175,7 +194,7 @@ fun CultosScreen(
 
 @Composable
 private fun CultoRow(
-    culto: Culto,
+    culto: CultoWithCount,
     setlistName: String?,
     onClick: () -> Unit,
     onDelete: () -> Unit
@@ -193,6 +212,24 @@ private fun CultoRow(
                 "${formatTime12h(culto.dateMillis)} · ${setlistName ?: "Sin setlist"}",
                 style = MaterialTheme.typography.bodySmall
             )
+            val meta = buildString {
+                if (!culto.leader.isNullOrBlank()) {
+                    append("Líder: ")
+                    append(culto.leader)
+                }
+                if (culto.musicianCount > 0) {
+                    if (isNotEmpty()) append(" · ")
+                    append(culto.musicianCount)
+                    append(if (culto.musicianCount == 1) " músico" else " músicos")
+                }
+            }
+            if (meta.isNotEmpty()) {
+                Text(
+                    meta,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
         IconButton(onClick = onDelete) {
             Icon(Icons.Default.Delete, contentDescription = "Eliminar")
@@ -202,7 +239,7 @@ private fun CultoRow(
 
 @Composable
 private fun BulkAssignDialog(
-    cultos: List<Culto>,
+    cultos: List<CultoWithCount>,
     setlists: List<Setlist>,
     onDismiss: () -> Unit,
     onApply: (List<Long>, Long?) -> Unit
