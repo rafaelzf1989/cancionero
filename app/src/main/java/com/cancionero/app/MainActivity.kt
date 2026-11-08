@@ -338,8 +338,8 @@ fun AppContent(
                         initial = editingCulto,
                         setlists = setlists,
                         allMusicians = musicians,
-                        onSave = { culto, musicianIds ->
-                            vm.save(culto, musicianIds)
+                        onSave = { culto, musicianIds, musicianRoles, setlistIds ->
+                            vm.save(culto, musicianIds, musicianRoles, setlistIds)
                             editingCulto = null
                             screen = Screen.Cultos
                         },
