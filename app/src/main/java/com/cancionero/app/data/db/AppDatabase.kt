@@ -8,6 +8,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.cancionero.app.data.model.Culto
 import com.cancionero.app.data.model.CultoMusician
+import com.cancionero.app.data.model.CultoSetlist
 import com.cancionero.app.data.model.Moment
 import com.cancionero.app.data.model.Musician
 import com.cancionero.app.data.model.Setlist
@@ -18,9 +19,9 @@ import java.util.Calendar
 @Database(
     entities = [
         Song::class, Setlist::class, SetlistSong::class, Culto::class,
-        Moment::class, Musician::class, CultoMusician::class
+        Moment::class, Musician::class, CultoMusician::class, CultoSetlist::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -145,6 +146,107 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Guardar datos antiguos en temporales
+                db.execSQL(
+                    "CREATE TEMP TABLE temp_cultos AS " +
+                        "SELECT id, name, dateMillis, leader, setlistId FROM cultos"
+                )
+                db.execSQL(
+                    "CREATE TEMP TABLE temp_musicians AS " +
+                        "SELECT id, name, role, phone, notes FROM musicians"
+                )
+                db.execSQL(
+                    "CREATE TEMP TABLE temp_culto_musicians AS " +
+                        "SELECT cultoId, musicianId FROM culto_musicians"
+                )
+
+                // Drop en orden de dependencias
+                db.execSQL("DROP TABLE culto_musicians")
+                db.execSQL("DROP TABLE cultos")
+                db.execSQL("DROP TABLE musicians")
+
+                // Recrear tablas nuevas
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `cultos` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`dateMillis` INTEGER NOT NULL, " +
+                        "`leader` TEXT)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `musicians` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`roles` TEXT NOT NULL, " +
+                        "`phone` TEXT, " +
+                        "`notes` TEXT)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `culto_musicians` (" +
+                        "`cultoId` INTEGER NOT NULL, " +
+                        "`musicianId` INTEGER NOT NULL, " +
+                        "`rolesInCulto` TEXT, " +
+                        "PRIMARY KEY(`cultoId`, `musicianId`), " +
+                        "FOREIGN KEY(`cultoId`) REFERENCES `cultos`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE, " +
+                        "FOREIGN KEY(`musicianId`) REFERENCES `musicians`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_culto_musicians_cultoId` " +
+                        "ON `culto_musicians` (`cultoId`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_culto_musicians_musicianId` " +
+                        "ON `culto_musicians` (`musicianId`)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `culto_setlists` (" +
+                        "`cultoId` INTEGER NOT NULL, " +
+                        "`setlistId` INTEGER NOT NULL, " +
+                        "`position` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`cultoId`, `setlistId`), " +
+                        "FOREIGN KEY(`cultoId`) REFERENCES `cultos`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE, " +
+                        "FOREIGN KEY(`setlistId`) REFERENCES `setlists`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_culto_setlists_cultoId` " +
+                        "ON `culto_setlists` (`cultoId`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_culto_setlists_setlistId` " +
+                        "ON `culto_setlists` (`setlistId`)"
+                )
+
+                // Restaurar datos
+                db.execSQL(
+                    "INSERT INTO cultos (id, name, dateMillis, leader) " +
+                        "SELECT id, name, dateMillis, leader FROM temp_cultos"
+                )
+                db.execSQL(
+                    "INSERT INTO musicians (id, name, roles, phone, notes) " +
+                        "SELECT id, name, role, phone, notes FROM temp_musicians"
+                )
+                db.execSQL(
+                    "INSERT INTO culto_musicians (cultoId, musicianId, rolesInCulto) " +
+                        "SELECT cultoId, musicianId, NULL FROM temp_culto_musicians"
+                )
+                db.execSQL(
+                    "INSERT INTO culto_setlists (cultoId, setlistId, position) " +
+                        "SELECT id, setlistId, 0 FROM temp_cultos WHERE setlistId IS NOT NULL"
+                )
+
+                // Limpiar temporales
+                db.execSQL("DROP TABLE temp_cultos")
+                db.execSQL("DROP TABLE temp_musicians")
+                db.execSQL("DROP TABLE temp_culto_musicians")
+            }
+        }
+
         private fun computeNextOccurrence(dayOfWeek: Int, time: String): Long {
             val cal = Calendar.getInstance()
             val targetDow = if (dayOfWeek == 7) 1 else dayOfWeek + 1
@@ -172,7 +274,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "cancionero.db"
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
-                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
+                    MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8
                 ).build().also { INSTANCE = it }
             }
         }
