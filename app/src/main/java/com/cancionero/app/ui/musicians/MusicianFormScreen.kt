@@ -1,6 +1,5 @@
 package com.cancionero.app.ui.musicians
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,11 +44,17 @@ fun MusicianFormScreen(
     onCancel: () -> Unit
 ) {
     var name by remember { mutableStateOf(initial?.name ?: "") }
-    var role by remember { mutableStateOf(initial?.role ?: "") }
+    var selectedRoles by remember {
+        mutableStateOf(initial?.rolesList()?.toSet() ?: emptySet())
+    }
     var phone by remember { mutableStateOf(initial?.phone ?: "") }
     var notes by remember { mutableStateOf(initial?.notes ?: "") }
 
-    val rolesComunes = listOf("Voz", "Guitarra", "Bajo", "Batería", "Teclado", "Piano")
+    val rolesComunes = listOf(
+        "Voz", "Voz líder", "Voz de coro",
+        "Guitarra", "Bajo", "Batería",
+        "Teclado", "Piano"
+    )
 
     Scaffold(
         topBar = {
@@ -79,27 +84,35 @@ fun MusicianFormScreen(
                 singleLine = true
             )
 
-            Text("Rol", style = MaterialTheme.typography.labelLarge)
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                rolesComunes.forEach { r ->
-                    FilterChip(
-                        selected = role == r,
-                        onClick = { role = if (role == r) "" else r },
-                        label = { Text(r) }
-                    )
+            Text(
+                "Roles (puedes marcar varios)",
+                style = MaterialTheme.typography.labelLarge
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                rolesComunes.chunked(2).forEach { rowRoles ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowRoles.forEach { role ->
+                            FilterChip(
+                                selected = role in selectedRoles,
+                                onClick = {
+                                    selectedRoles = if (role in selectedRoles)
+                                        selectedRoles - role
+                                    else
+                                        selectedRoles + role
+                                },
+                                label = { Text(role) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (rowRoles.size == 1) {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    }
                 }
             }
-            OutlinedTextField(
-                value = role,
-                onValueChange = { role = it },
-                label = { Text("Rol") },
-                placeholder = { Text("Voz, Guitarra, Bajo… o el que prefieras") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
 
             OutlinedTextField(
                 value = phone,
@@ -131,14 +144,14 @@ fun MusicianFormScreen(
                         Musician(
                             id = initial?.id ?: 0,
                             name = name.trim(),
-                            role = role.trim().ifBlank { "Músico" },
+                            roles = selectedRoles.joinToString(",").ifBlank { "Músico" },
                             phone = phone.trim().ifBlank { null },
                             notes = notes.trim().ifBlank { null }
                         )
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = name.isNotBlank()
+                enabled = name.isNotBlank() && selectedRoles.isNotEmpty()
             ) {
                 Text("Guardar")
             }
