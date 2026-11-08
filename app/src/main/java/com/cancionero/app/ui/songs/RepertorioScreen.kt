@@ -1,6 +1,7 @@
 package com.cancionero.app.ui.songs
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,15 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -29,41 +29,55 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.cancionero.app.data.model.Moment
 import com.cancionero.app.data.model.Song
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RepertorioScreen(
     vm: SongsViewModel,
     onAddSong: () -> Unit,
-    onEditSong: (Song) -> Unit
+    onEditSong: (Song) -> Unit,
+    onManageMoments: () -> Unit
 ) {
     val songs by vm.filteredSongs.collectAsState()
     val filters by vm.filters.collectAsState()
+    val moments by vm.moments.collectAsState()
+
     var showFilters by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    val activeCount = filters.activeCount()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Repertorio") },
                 actions = {
-                    IconButton(onClick = { showFilters = !showFilters }) {
-                        Icon(Icons.Default.FilterList, contentDescription = "Filtros")
+                    IconButton(onClick = { showFilters = true }) {
+                        Icon(
+                            Icons.Default.FilterList,
+                            contentDescription = "Filtros"
+                        )
                     }
                 }
             )
@@ -93,105 +107,21 @@ fun RepertorioScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                FilterChip(
-                    selected = filters.onlyFavorites,
-                    onClick = { vm.toggleFavorites() },
-                    label = { Text("⭐") }
-                )
-                FilterChip(
-                    selected = filters.onlyLaCuerda,
-                    onClick = { vm.toggleLaCuerda() },
-                    label = { Text("LaCuerda") }
-                )
-                FilterChip(
-                    selected = filters.onlyCancionero,
-                    onClick = { vm.toggleCancionero() },
-                    label = { Text("Cancionero") }
-                )
-                FilterChip(
-                    selected = filters.onlyLibreta,
-                    onClick = { vm.toggleLibreta() },
-                    label = { Text("Libreta") }
-                )
-            }
-
-            if (showFilters) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = filters.key ?: "",
-                        onValueChange = { vm.setKey(it.ifBlank { null }) },
-                        label = { Text("Tonalidad (ej. C, G, Em)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                OutlinedButton(onClick = { showFilters = true }) {
+                    Icon(Icons.Default.FilterList, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (activeCount == 0) "Filtros"
+                        else "Filtros ($activeCount)"
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Lento", "Medio", "Rápido").forEach { t ->
-                            FilterChip(
-                                selected = filters.tempoText == t,
-                                onClick = {
-                                    vm.setTempo(if (filters.tempoText == t) null else t)
-                                },
-                                label = { Text(t) }
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-
-                    val momentos = listOf(
-                        "Entrada", "Adoración", "Alabanza", "Ofrenda",
-                        "Comunión", "Especial", "Despedida"
-                    )
-                    var momentExpanded by remember { mutableStateOf(false) }
-                    Box {
-                        OutlinedButton(
-                            onClick = { momentExpanded = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(filters.moment ?: "Momento: todos")
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                        }
-                        DropdownMenu(
-                            expanded = momentExpanded,
-                            onDismissRequest = { momentExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Todos") },
-                                onClick = {
-                                    vm.setMoment(null)
-                                    momentExpanded = false
-                                }
-                            )
-                            momentos.forEach { m ->
-                                DropdownMenuItem(
-                                    text = { Text(m) },
-                                    onClick = {
-                                        vm.setMoment(m)
-                                        momentExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = filters.tag ?: "",
-                        onValueChange = { vm.setTag(it.ifBlank { null }) },
-                        label = { Text("Tag (ej. navidad, himno)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
+                }
+                if (activeCount > 0) {
+                    Spacer(Modifier.width(8.dp))
                     TextButton(onClick = { vm.clearFilters() }) {
-                        Text("Limpiar filtros")
+                        Text("Limpiar")
                     }
                 }
             }
@@ -227,6 +157,154 @@ fun RepertorioScreen(
                     }
                 }
             }
+        }
+
+        if (showFilters) {
+            ModalBottomSheet(
+                onDismissRequest = { showFilters = false },
+                sheetState = sheetState
+            ) {
+                FiltersSheetContent(
+                    filters = filters,
+                    moments = moments,
+                    vm = vm,
+                    onManageMoments = {
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            showFilters = false
+                            onManageMoments()
+                        }
+                    },
+                    onClose = {
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            showFilters = false
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FiltersSheetContent(
+    filters: SongFilters,
+    moments: List<Moment>,
+    vm: SongsViewModel,
+    onManageMoments: () -> Unit,
+    onClose: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Filtros", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { vm.clearFilters() }) {
+                Text("Limpiar todo")
+            }
+        }
+
+        HorizontalDivider()
+        Text("Buscar", style = MaterialTheme.typography.labelLarge)
+        OutlinedTextField(
+            value = filters.key ?: "",
+            onValueChange = { vm.setKey(it.ifBlank { null }) },
+            label = { Text("Tonalidad (ej. C, G, Em)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        OutlinedTextField(
+            value = filters.tag ?: "",
+            onValueChange = { vm.setTag(it.ifBlank { null }) },
+            label = { Text("Tag (ej. navidad, himno)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        HorizontalDivider()
+        Text("Tempo", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Lento", "Medio", "Rápido").forEach { t ->
+                FilterChip(
+                    selected = filters.tempoText == t,
+                    onClick = { vm.setTempo(if (filters.tempoText == t) null else t) },
+                    label = { Text(t) }
+                )
+            }
+        }
+
+        HorizontalDivider()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Momento del culto", style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = onManageMoments) {
+                Text("Gestionar")
+            }
+        }
+        if (moments.isEmpty()) {
+            Text(
+                "No hay momentos definidos. Pulsa Gestionar para crear.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        } else {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                moments.forEach { m ->
+                    FilterChip(
+                        selected = filters.moment == m.name,
+                        onClick = {
+                            vm.setMoment(if (filters.moment == m.name) null else m.name)
+                        },
+                        label = { Text(m.name) }
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider()
+        Text("Fuentes y favoritos", style = MaterialTheme.typography.labelLarge)
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = filters.onlyFavorites,
+                onClick = { vm.toggleFavorites() },
+                label = { Text("⭐ Favoritas") }
+            )
+            FilterChip(
+                selected = filters.onlyLaCuerda,
+                onClick = { vm.toggleLaCuerda() },
+                label = { Text("LaCuerda") }
+            )
+            FilterChip(
+                selected = filters.onlyCancionero,
+                onClick = { vm.toggleCancionero() },
+                label = { Text("Cancionero") }
+            )
+            FilterChip(
+                selected = filters.onlyLibreta,
+                onClick = { vm.toggleLibreta() },
+                label = { Text("Libreta") }
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = onClose,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Listo")
         }
     }
 }
