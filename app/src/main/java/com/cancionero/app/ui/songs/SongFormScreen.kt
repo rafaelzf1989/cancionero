@@ -1,5 +1,6 @@
 package com.cancionero.app.ui.songs
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -34,9 +37,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.cancionero.app.data.model.Song
+import com.cancionero.app.share.ShareHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,8 +49,11 @@ fun SongFormScreen(
     initial: Song?,
     onSave: (Song) -> Unit,
     onDelete: (Song) -> Unit,
+    onDuplicate: (Song) -> Unit,
     onCancel: () -> Unit
 ) {
+    val context = LocalContext.current
+
     var title by remember { mutableStateOf(initial?.title ?: "") }
     var songKey by remember { mutableStateOf(initial?.songKey ?: "C") }
     var tempoBpm by remember { mutableStateOf(initial?.tempoBpm?.toString() ?: "") }
@@ -55,6 +63,13 @@ fun SongFormScreen(
     var sourceLibreta by remember { mutableStateOf(initial?.libretaNumber != null) }
     var libretaNumber by remember { mutableStateOf(initial?.libretaNumber?.toString() ?: "") }
     var notes by remember { mutableStateOf(initial?.notes ?: "") }
+    var moment by remember { mutableStateOf(initial?.moment) }
+    var tags by remember { mutableStateOf(initial?.tags ?: "") }
+
+    val momentos = listOf(
+        "Entrada", "Adoración", "Alabanza", "Ofrenda",
+        "Comunión", "Especial", "Despedida"
+    )
 
     Scaffold(
         topBar = {
@@ -63,6 +78,37 @@ fun SongFormScreen(
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
                         Icon(Icons.Default.Close, contentDescription = "Cancelar")
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            val song = Song(
+                                id = initial?.id ?: 0,
+                                title = title.trim(),
+                                tempoBpm = tempoBpm.toIntOrNull(),
+                                tempoText = tempoText.ifBlank { null },
+                                songKey = songKey.trim().ifBlank { "C" },
+                                sourceLaCuerda = sourceLaCuerda,
+                                sourceCancionero = sourceCancionero,
+                                libretaNumber = if (sourceLibreta) libretaNumber.toIntOrNull() else null,
+                                notes = notes.ifBlank { null },
+                                isFavorite = initial?.isFavorite ?: false,
+                                usageCount = initial?.usageCount ?: 0,
+                                createdAt = initial?.createdAt ?: System.currentTimeMillis(),
+                                updatedAt = System.currentTimeMillis(),
+                                moment = moment,
+                                tags = tags.ifBlank { null }
+                            )
+                            ShareHelper.shareSong(context, song)
+                        }
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = "Compartir")
+                    }
+                    if (initial != null) {
+                        IconButton(onClick = { onDuplicate(initial) }) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Duplicar")
+                        }
                     }
                 }
             )
@@ -92,29 +138,48 @@ fun SongFormScreen(
                 singleLine = true
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = tempoBpm,
-                    onValueChange = { tempoBpm = it.filter { c -> c.isDigit() } },
-                    label = { Text("BPM") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-            }
+            OutlinedTextField(
+                value = tempoBpm,
+                onValueChange = { tempoBpm = it.filter { c -> c.isDigit() } },
+                label = { Text("BPM") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
 
             Text("Tempo", style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Lento", "Medio", "Rápido").forEach { t ->
                     FilterChip(
                         selected = tempoText == t,
-                        onClick = {
-                            tempoText = if (tempoText == t) "" else t
-                        },
+                        onClick = { tempoText = if (tempoText == t) "" else t },
                         label = { Text(t) }
                     )
                 }
             }
+
+            Text("Momento del culto", style = MaterialTheme.typography.labelLarge)
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                momentos.forEach { m ->
+                    FilterChip(
+                        selected = moment == m,
+                        onClick = { moment = if (moment == m) null else m },
+                        label = { Text(m) }
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                value = tags,
+                onValueChange = { tags = it },
+                label = { Text("Tags (separados por coma)") },
+                placeholder = { Text("adoración, navidad, himno") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
 
             Spacer(Modifier.height(4.dp))
             Text("Fuentes", style = MaterialTheme.typography.labelLarge)
@@ -175,7 +240,9 @@ fun SongFormScreen(
                         isFavorite = initial?.isFavorite ?: false,
                         usageCount = initial?.usageCount ?: 0,
                         createdAt = initial?.createdAt ?: System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis()
+                        updatedAt = System.currentTimeMillis(),
+                        moment = moment,
+                        tags = tags.ifBlank { null }
                     )
                     onSave(song)
                 },
