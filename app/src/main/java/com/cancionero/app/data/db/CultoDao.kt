@@ -9,6 +9,8 @@ import androidx.room.Update
 import com.cancionero.app.data.model.Culto
 import com.cancionero.app.data.model.CultoMusician
 import com.cancionero.app.data.model.CultoSetlist
+import com.cancionero.app.data.model.Setlist
+import com.cancionero.app.data.model.Song
 import kotlinx.coroutines.flow.Flow
 
 data class CultoWithCount(
@@ -41,6 +43,25 @@ interface CultoDao {
         "FROM cultos c ORDER BY c.dateMillis ASC"
     )
     fun observeAllWithCount(): Flow<List<CultoWithCount>>
+
+    @Query("SELECT * FROM cultos WHERE id = :cultoId")
+    fun observeCultoById(cultoId: Long): Flow<Culto?>
+
+    @Query(
+        "SELECT sl.* FROM setlists sl " +
+        "INNER JOIN culto_setlists cs ON cs.setlistId = sl.id " +
+        "WHERE cs.cultoId = :cultoId ORDER BY cs.position ASC"
+    )
+    fun observeSetlistsOfCulto(cultoId: Long): Flow<List<Setlist>>
+
+    @Query(
+        "SELECT s.* FROM songs s " +
+        "INNER JOIN setlist_songs ss ON s.id = ss.songId " +
+        "INNER JOIN culto_setlists cs ON cs.setlistId = ss.setlistId " +
+        "WHERE cs.cultoId = :cultoId " +
+        "ORDER BY cs.position ASC, ss.position ASC"
+    )
+    fun observeSongsOfCulto(cultoId: Long): Flow<List<Song>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun assignMusicians(refs: List<CultoMusician>)
