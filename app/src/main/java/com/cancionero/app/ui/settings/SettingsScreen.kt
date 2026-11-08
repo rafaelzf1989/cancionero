@@ -168,7 +168,22 @@ fun SettingsScreen(
             }
 
             HorizontalDivider()
-            Text("Colores de la vista en vivo", style = MaterialTheme.typography.titleMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Colores de la vista en vivo", style = MaterialTheme.typography.titleMedium)
+                TextButton(onClick = {
+                    AppSettings.resetColors(context)
+                    bgColor = AppSettings.getBgColor(context)
+                    chordColor = AppSettings.getChordColor(context)
+                    lyricsColor = AppSettings.getLyricsColor(context)
+                    sectionColor = AppSettings.getSectionColor(context)
+                }) {
+                    Text("Restablecer")
+                }
+            }
             
             Card(
                 modifier = Modifier.fillMaxWidth().height(150.dp),
