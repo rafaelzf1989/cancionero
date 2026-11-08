@@ -8,5 +8,6 @@ data class Culto(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val dateMillis: Long,
-    val setlistId: Long? = null
+    val setlistId: Long? = null,
+    val leader: String? = null
 )
