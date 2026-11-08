@@ -156,22 +156,27 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                         factory = SongsViewModel.factory(db.songDao())
                     )
                     SongFormScreen(
-                        initial = editingSong,
-                        onSave = { song ->
-                            vm.save(song)
-                            editingSong = null
-                            screen = Screen.Repertorio
-                        },
-                        onDelete = { song ->
-                            vm.delete(song)
-                            editingSong = null
-                            screen = Screen.Repertorio
-                        },
-                        onCancel = {
-                            editingSong = null
-                            screen = Screen.Repertorio
-                        }
-                    )
+    initial = editingSong,
+    onSave = { song ->
+        vm.save(song)
+        editingSong = null
+        screen = Screen.Repertorio
+    },
+    onDelete = { song ->
+        vm.delete(song)
+        editingSong = null
+        screen = Screen.Repertorio
+    },
+    onDuplicate = { song ->
+        vm.duplicate(song)
+        editingSong = null
+        screen = Screen.Repertorio
+    },
+    onCancel = {
+        editingSong = null
+        screen = Screen.Repertorio
+    }
+)
                 }
                 is Screen.Setlists -> {
                     val vm: SetlistsViewModel = viewModel(
