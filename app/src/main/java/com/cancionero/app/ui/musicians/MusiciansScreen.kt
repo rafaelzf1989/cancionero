@@ -73,14 +73,13 @@ fun MusiciansScreen(
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(m.name, style = MaterialTheme.typography.titleMedium)
-                            val sub = buildString {
-                                append(m.role)
-                                if (!m.phone.isNullOrBlank()) {
-                                    append(" · ")
-                                    append(m.phone)
-                                }
+                            Text(m.roles, style = MaterialTheme.typography.bodySmall)
+                            if (!m.phone.isNullOrBlank()) {
+                                Text(
+                                    m.phone!!,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
                             }
-                            Text(sub, style = MaterialTheme.typography.bodySmall)
                         }
                         if (!m.phone.isNullOrBlank()) {
                             Spacer(Modifier.width(4.dp))
