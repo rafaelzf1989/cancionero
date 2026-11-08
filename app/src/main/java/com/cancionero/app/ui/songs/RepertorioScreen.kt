@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -69,7 +70,8 @@ fun RepertorioScreen(
     vm: SongsViewModel,
     onAddSong: () -> Unit,
     onEditSong: (Song) -> Unit,
-    onManageMoments: () -> Unit
+    onManageMoments: () -> Unit,
+    onPreviewSong: (Song) -> Unit
 ) {
     val context = LocalContext.current
     val songs by vm.filteredSongs.collectAsState()
@@ -196,7 +198,8 @@ fun RepertorioScreen(
                                 selectionMode = true,
                                 isSelected = song.id in selectedIds,
                                 onClick = { vm.toggleSelected(song.id) },
-                                onToggleFavorite = { vm.toggleFavorite(song) }
+                                onToggleFavorite = { vm.toggleFavorite(song) },
+                                onPreview = { onPreviewSong(song) }
                             )
                         } else {
                             val dismissState = rememberSwipeToDismissBoxState(
@@ -251,7 +254,8 @@ fun RepertorioScreen(
                                     selectionMode = false,
                                     isSelected = false,
                                     onClick = { onEditSong(song) },
-                                    onToggleFavorite = { vm.toggleFavorite(song) }
+                                    onToggleFavorite = { vm.toggleFavorite(song) },
+                                    onPreview = { onPreviewSong(song) }
                                 )
                             }
                         }
@@ -461,7 +465,8 @@ private fun SongRow(
     selectionMode: Boolean,
     isSelected: Boolean,
     onClick: () -> Unit,
-    onToggleFavorite: () -> Unit
+    onToggleFavorite: () -> Unit,
+    onPreview: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -508,6 +513,9 @@ private fun SongRow(
         }
         if (!selectionMode) {
             Spacer(Modifier.width(8.dp))
+            IconButton(onClick = onPreview) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Vista previa")
+            }
             IconButton(onClick = onToggleFavorite) {
                 Icon(
                     imageVector = if (song.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
