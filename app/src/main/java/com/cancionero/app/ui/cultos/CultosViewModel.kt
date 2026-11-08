@@ -5,13 +5,16 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.cancionero.app.data.db.CultoDao
 import com.cancionero.app.data.db.CultoWithCount
+import com.cancionero.app.data.db.MomentDao
 import com.cancionero.app.data.db.MusicianDao
 import com.cancionero.app.data.db.SetlistDao
+import com.cancionero.app.data.db.SongDao
 import com.cancionero.app.data.model.Culto
 import com.cancionero.app.data.model.CultoMusician
 import com.cancionero.app.data.model.CultoSetlist
 import com.cancionero.app.data.model.Musician
 import com.cancionero.app.data.model.Setlist
+import com.cancionero.app.data.model.Song
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -20,7 +23,9 @@ import kotlinx.coroutines.launch
 class CultosViewModel(
     private val cultoDao: CultoDao,
     private val setlistDao: SetlistDao,
-    private val musicianDao: MusicianDao
+    private val musicianDao: MusicianDao,
+    private val songDao: SongDao,
+    private val momentDao: MomentDao
 ) : ViewModel() {
 
     val cultos: StateFlow<List<CultoWithCount>> = cultoDao.observeAllWithCount().stateIn(
@@ -103,16 +108,30 @@ class CultosViewModel(
     suspend fun getSetlistIdsFor(cultoId: Long): List<Long> =
         cultoDao.getSetlistIdsOfCulto(cultoId)
 
+    suspend fun fetchSongsForSetlists(setlistIds: List<Long>): Map<Long, List<Song>> {
+        val map = mutableMapOf<Long, List<Song>>()
+        setlistIds.forEach { id ->
+            map[id] = setlistDao.getSongsOnce(id)
+        }
+        return map
+    }
+
+    suspend fun getMomentsOrder(): List<String> {
+        return momentDao.getAll().sortedBy { it.position }.map { it.name }
+    }
+
     companion object {
         fun factory(
             cultoDao: CultoDao,
             setlistDao: SetlistDao,
-            musicianDao: MusicianDao
+            musicianDao: MusicianDao,
+            songDao: SongDao,
+            momentDao: MomentDao
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    CultosViewModel(cultoDao, setlistDao, musicianDao) as T
+                    CultosViewModel(cultoDao, setlistDao, musicianDao, songDao, momentDao) as T
             }
     }
 }
