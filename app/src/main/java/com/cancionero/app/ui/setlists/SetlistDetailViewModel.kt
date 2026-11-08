@@ -34,6 +34,17 @@ class SetlistDetailViewModel(
             viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
         )
 
+    fun rename(newName: String) {
+        val clean = newName.trim()
+        if (clean.isBlank()) return
+        viewModelScope.launch {
+            val current = setlistDao.getById(setlistId) ?: return@launch
+            setlistDao.update(
+                current.copy(name = clean, updatedAt = System.currentTimeMillis())
+            )
+        }
+    }
+
     fun addSong(song: Song) {
         viewModelScope.launch {
             val pos = setlistDao.maxPosition(setlistId) + 1
@@ -46,30 +57,6 @@ class SetlistDetailViewModel(
     fun removeSong(song: Song) {
         viewModelScope.launch {
             setlistDao.removeSong(setlistId, song.id)
-        }
-    }
-
-    fun moveUp(song: Song) {
-        viewModelScope.launch {
-            val refs = setlistDao.getAllRefs(setlistId).sortedBy { it.position }
-            val idx = refs.indexOfFirst { it.songId == song.id }
-            if (idx <= 0) return@launch
-            val current = refs[idx]
-            val prev = refs[idx - 1]
-            setlistDao.updatePosition(setlistId, current.songId, prev.position)
-            setlistDao.updatePosition(setlistId, prev.songId, current.position)
-        }
-    }
-
-    fun moveDown(song: Song) {
-        viewModelScope.launch {
-            val refs = setlistDao.getAllRefs(setlistId).sortedBy { it.position }
-            val idx = refs.indexOfFirst { it.songId == song.id }
-            if (idx < 0 || idx >= refs.size - 1) return@launch
-            val current = refs[idx]
-            val next = refs[idx + 1]
-            setlistDao.updatePosition(setlistId, current.songId, next.position)
-            setlistDao.updatePosition(setlistId, next.songId, current.position)
         }
     }
 
