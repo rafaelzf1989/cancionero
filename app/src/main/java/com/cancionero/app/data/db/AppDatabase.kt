@@ -7,15 +7,20 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.cancionero.app.data.model.Culto
+import com.cancionero.app.data.model.CultoMusician
 import com.cancionero.app.data.model.Moment
+import com.cancionero.app.data.model.Musician
 import com.cancionero.app.data.model.Setlist
 import com.cancionero.app.data.model.SetlistSong
 import com.cancionero.app.data.model.Song
 import java.util.Calendar
 
 @Database(
-    entities = [Song::class, Setlist::class, SetlistSong::class, Culto::class, Moment::class],
-    version = 5,
+    entities = [
+        Song::class, Setlist::class, SetlistSong::class, Culto::class,
+        Moment::class, Musician::class, CultoMusician::class
+    ],
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -23,6 +28,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun setlistDao(): SetlistDao
     abstract fun cultoDao(): CultoDao
     abstract fun momentDao(): MomentDao
+    abstract fun musicianDao(): MusicianDao
 
     companion object {
         @Volatile
@@ -99,6 +105,38 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE cultos ADD COLUMN leader TEXT")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `musicians` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`role` TEXT NOT NULL, " +
+                        "`phone` TEXT, " +
+                        "`notes` TEXT)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `culto_musicians` (" +
+                        "`cultoId` INTEGER NOT NULL, " +
+                        "`musicianId` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`cultoId`, `musicianId`), " +
+                        "FOREIGN KEY(`cultoId`) REFERENCES `cultos`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE, " +
+                        "FOREIGN KEY(`musicianId`) REFERENCES `musicians`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_culto_musicians_cultoId` " +
+                        "ON `culto_musicians` (`cultoId`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_culto_musicians_musicianId` " +
+                        "ON `culto_musicians` (`musicianId`)"
+                )
+            }
+        }
+
         private fun computeNextOccurrence(dayOfWeek: Int, time: String): Long {
             val cal = Calendar.getInstance()
             val targetDow = if (dayOfWeek == 7) 1 else dayOfWeek + 1
@@ -124,8 +162,10 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "cancionero.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
-                    .build().also { INSTANCE = it }
+                ).addMigrations(
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
+                    MIGRATION_4_5, MIGRATION_5_6
+                ).build().also { INSTANCE = it }
             }
         }
     }
