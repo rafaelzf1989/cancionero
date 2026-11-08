@@ -70,6 +70,7 @@ fun SongFormScreen(
     var notes by remember { mutableStateOf(initial?.notes ?: "") }
     var moment by remember { mutableStateOf(initial?.moment) }
     var tags by remember { mutableStateOf(initial?.tags ?: "") }
+    var lyrics by remember { mutableStateOf(initial?.lyrics ?: "") }
 
     Scaffold(
         topBar = {
@@ -98,7 +99,8 @@ fun SongFormScreen(
                                 createdAt = initial?.createdAt ?: System.currentTimeMillis(),
                                 updatedAt = System.currentTimeMillis(),
                                 moment = moment,
-                                tags = tags.ifBlank { null }
+                                tags = tags.ifBlank { null },
+                                lyrics = lyrics.ifBlank { null }
                             )
                             ShareHelper.shareSong(context, song)
                         }
@@ -240,6 +242,14 @@ fun SongFormScreen(
                 minLines = 3
             )
 
+            OutlinedTextField(
+                value = lyrics,
+                onValueChange = { lyrics = it },
+                label = { Text("Letra de la canción") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 8
+            )
+
             Button(
                 onClick = {
                     val song = Song(
@@ -257,7 +267,8 @@ fun SongFormScreen(
                         createdAt = initial?.createdAt ?: System.currentTimeMillis(),
                         updatedAt = System.currentTimeMillis(),
                         moment = moment,
-                        tags = tags.ifBlank { null }
+                        tags = tags.ifBlank { null },
+                        lyrics = lyrics.ifBlank { null }
                     )
                     onSave(song)
                 },
