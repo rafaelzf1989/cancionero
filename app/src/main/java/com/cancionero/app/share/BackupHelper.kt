@@ -28,6 +28,13 @@ data class BackupData(
     val cultoSetlists: List<CultoSetlist> = emptyList()
 )
 
+@Serializable
+data class MusiciansBackup(
+    val version: Int = 1,
+    val exportedAt: Long = System.currentTimeMillis(),
+    val musicians: List<Musician> = emptyList()
+)
+
 object BackupHelper {
 
     private val json = Json {
@@ -72,6 +79,29 @@ object BackupHelper {
             if (data.cultoMusicians.isNotEmpty()) dao.insertCultoMusicians(data.cultoMusicians)
             if (data.cultoSetlists.isNotEmpty()) dao.insertCultoSetlists(data.cultoSetlists)
             Result.success(data)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun buildMusiciansBackup(db: AppDatabase): String {
+        val list = db.backupDao().getAllMusicians()
+        val data = MusiciansBackup(musicians = list)
+        return json.encodeToString(MusiciansBackup.serializer(), data)
+    }
+
+    suspend fun restoreMusiciansBackup(db: AppDatabase, content: String): Result<Int> {
+        return try {
+            val data = json.decodeFromString(MusiciansBackup.serializer(), content)
+            var added = 0
+            data.musicians.forEach { m ->
+                val existing = db.musicianDao().findByNameAndPhone(m.name, m.phone)
+                if (existing == null) {
+                    db.musicianDao().insert(m.copy(id = 0))
+                    added++
+                }
+            }
+            Result.success(added)
         } catch (e: Exception) {
             Result.failure(e)
         }
