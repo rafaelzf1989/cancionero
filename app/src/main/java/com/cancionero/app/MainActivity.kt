@@ -147,38 +147,19 @@ fun AppContent(
     var previousScreens by remember { mutableStateOf<List<Screen>>(emptyList()) }
     var backPressedOnce by remember { mutableStateOf(false) }
 
-    // ---- Estados de edición (declarados ANTES de usarlos) ----
+    // ---- Estados de edición ----
     var editingSong by remember { mutableStateOf<Song?>(null) }
     var editingCulto by remember { mutableStateOf<Culto?>(null) }
     var editingMusician by remember { mutableStateOf<Musician?>(null) }
 
-    val tabs = setOf<Screen>(
-        Screen.Repertorio,
-        Screen.Setlists,
-        Screen.Cultos,
-        Screen.Musicians,
-        Screen.Settings
-    )
-
     fun navigateTo(newScreen: Screen) {
         if (screen == newScreen) return
-        previousScreens = if (
-            newScreen in tabs &&
-            previousScreens.isNotEmpty() &&
-            previousScreens.last() in tabs
-        ) {
-            previousScreens.dropLast(1) + screen
-        } else {
-            previousScreens + screen
-        }
+        previousScreens = previousScreens + screen
         screen = newScreen
     }
 
     fun goBack(): Boolean {
         if (previousScreens.isEmpty()) return false
-        editingSong = null
-        editingCulto = null
-        editingMusician = null
         screen = previousScreens.last()
         previousScreens = previousScreens.dropLast(1)
         return true
@@ -205,7 +186,7 @@ fun AppContent(
     if (!customBackHandlerScreens) {
         BackHandler {
             if (goBack()) {
-                // ok
+                // ok, navegamos atrás
             } else if (screen is Screen.Cultos) {
                 if (backPressedOnce) {
                     (context as? Activity)?.finish()
@@ -349,7 +330,8 @@ fun AppContent(
                 is Screen.Cultos -> {
                     val vm: CultosViewModel = viewModel(
                         factory = CultosViewModel.factory(
-                            db.cultoDao(), db.setlistDao(), db.musicianDao()
+                            db.cultoDao(), db.setlistDao(), db.musicianDao(),
+                            db.songDao(), db.momentDao()
                         )
                     )
                     CultosScreen(
@@ -370,7 +352,8 @@ fun AppContent(
                 is Screen.CultoForm -> {
                     val vm: CultosViewModel = viewModel(
                         factory = CultosViewModel.factory(
-                            db.cultoDao(), db.setlistDao(), db.musicianDao()
+                            db.cultoDao(), db.setlistDao(), db.musicianDao(),
+                            db.songDao(), db.momentDao()
                         )
                     )
                     val setlists by vm.setlists.collectAsState()
