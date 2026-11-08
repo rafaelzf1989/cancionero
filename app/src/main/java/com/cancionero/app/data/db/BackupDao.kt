@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.cancionero.app.data.model.Culto
 import com.cancionero.app.data.model.CultoMusician
+import com.cancionero.app.data.model.CultoSetlist
 import com.cancionero.app.data.model.Moment
 import com.cancionero.app.data.model.Musician
 import com.cancionero.app.data.model.Setlist
@@ -21,6 +22,7 @@ interface BackupDao {
     @Query("SELECT * FROM moments") suspend fun getAllMoments(): List<Moment>
     @Query("SELECT * FROM musicians") suspend fun getAllMusicians(): List<Musician>
     @Query("SELECT * FROM culto_musicians") suspend fun getAllCultoMusicians(): List<CultoMusician>
+    @Query("SELECT * FROM culto_setlists") suspend fun getAllCultoSetlists(): List<CultoSetlist>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSongs(items: List<Song>)
@@ -43,6 +45,10 @@ interface BackupDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCultoMusicians(items: List<CultoMusician>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCultoSetlists(items: List<CultoSetlist>)
+
+    @Query("DELETE FROM culto_setlists") suspend fun clearCultoSetlists()
     @Query("DELETE FROM culto_musicians") suspend fun clearCultoMusicians()
     @Query("DELETE FROM setlist_songs") suspend fun clearSetlistSongs()
     @Query("DELETE FROM cultos") suspend fun clearCultos()
