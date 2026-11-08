@@ -15,10 +15,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -26,6 +29,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -139,6 +143,53 @@ fun RepertorioScreen(
                             )
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+
+                    val momentos = listOf(
+                        "Entrada", "Adoración", "Alabanza", "Ofrenda",
+                        "Comunión", "Especial", "Despedida"
+                    )
+                    var momentExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedButton(
+                            onClick = { momentExpanded = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(filters.moment ?: "Momento: todos")
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+                        DropdownMenu(
+                            expanded = momentExpanded,
+                            onDismissRequest = { momentExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Todos") },
+                                onClick = {
+                                    vm.setMoment(null)
+                                    momentExpanded = false
+                                }
+                            )
+                            momentos.forEach { m ->
+                                DropdownMenuItem(
+                                    text = { Text(m) },
+                                    onClick = {
+                                        vm.setMoment(m)
+                                        momentExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = filters.tag ?: "",
+                        onValueChange = { vm.setTag(it.ifBlank { null }) },
+                        label = { Text("Tag (ej. navidad, himno)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
                     TextButton(onClick = { vm.clearFilters() }) {
                         Text("Limpiar filtros")
                     }
@@ -207,6 +258,20 @@ private fun SongRow(
                 }
             }
             Text(subtitle, style = MaterialTheme.typography.bodySmall)
+            val meta = buildString {
+                song.moment?.let { append(it) }
+                if (!song.tags.isNullOrBlank()) {
+                    if (isNotEmpty()) append(" · ")
+                    append(song.tags)
+                }
+            }
+            if (meta.isNotEmpty()) {
+                Text(
+                    meta,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
         Spacer(Modifier.width(8.dp))
         IconButton(onClick = onToggleFavorite) {
