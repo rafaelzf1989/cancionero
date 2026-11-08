@@ -28,5 +28,6 @@ import kotlinx.serialization.Serializable
 data class SetlistSong(
     val setlistId: Long,
     val songId: Long,
-    val position: Int
+    val position: Int,
+    val note: String? = null
 )
