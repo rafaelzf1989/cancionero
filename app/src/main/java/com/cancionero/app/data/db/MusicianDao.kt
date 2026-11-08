@@ -22,6 +22,12 @@ interface MusicianDao {
     @Query("SELECT * FROM musicians ORDER BY name COLLATE NOCASE ASC")
     fun observeAll(): Flow<List<Musician>>
 
+    @Query(
+        "SELECT * FROM musicians WHERE name = :name " +
+        "AND ((phone IS NULL AND :phone IS NULL) OR phone = :phone) LIMIT 1"
+    )
+    suspend fun findByNameAndPhone(name: String, phone: String?): Musician?
+
     @Query("SELECT COUNT(*) FROM musicians")
     suspend fun count(): Int
 }
