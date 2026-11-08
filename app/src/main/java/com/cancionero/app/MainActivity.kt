@@ -147,6 +147,11 @@ fun AppContent(
     var previousScreens by remember { mutableStateOf<List<Screen>>(emptyList()) }
     var backPressedOnce by remember { mutableStateOf(false) }
 
+    // ---- Estados de edición (declarados ANTES de usarlos) ----
+    var editingSong by remember { mutableStateOf<Song?>(null) }
+    var editingCulto by remember { mutableStateOf<Culto?>(null) }
+    var editingMusician by remember { mutableStateOf<Musician?>(null) }
+
     val tabs = setOf<Screen>(
         Screen.Repertorio,
         Screen.Setlists,
@@ -162,7 +167,6 @@ fun AppContent(
             previousScreens.isNotEmpty() &&
             previousScreens.last() in tabs
         ) {
-            // Reemplazar tab (no acumular)
             previousScreens.dropLast(1) + screen
         } else {
             previousScreens + screen
@@ -189,11 +193,6 @@ fun AppContent(
             backPressedOnce = false
         }
     }
-
-    // ---- Estados de edición ----
-    var editingSong by remember { mutableStateOf<Song?>(null) }
-    var editingCulto by remember { mutableStateOf<Culto?>(null) }
-    var editingMusician by remember { mutableStateOf<Musician?>(null) }
 
     val showBottomBar = screen is Screen.Repertorio ||
             screen is Screen.Setlists ||
