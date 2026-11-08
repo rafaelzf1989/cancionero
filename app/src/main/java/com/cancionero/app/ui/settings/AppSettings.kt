@@ -2,6 +2,7 @@ package com.cancionero.app.ui.settings
 
 import android.content.Context
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 
 object AppSettings {
     private const val PREFS = "cancionero_app_prefs"
@@ -24,20 +25,28 @@ object AppSettings {
             .edit().putFloat(KEY_FONT_SCALE, scale).apply()
     }
 
-    val DefaultBg = Color(0xFF000000)
-    val DefaultChord = Color(0xFF00E5FF)
-    val DefaultLyrics = Color(0xFFFFFFFF)
-    val DefaultSection = Color(0xFF9E9E9E)
+    // Colores por defecto
+    val DefaultBg = Color(0xFF000000)       // Negro
+    val DefaultChord = Color(0xFF00E5FF)    // Cian
+    val DefaultLyrics = Color(0xFFFFFFFF)   // Blanco
+    val DefaultSection = Color(0xFF9E9E9E)  // Gris
 
-    fun getBgColor(context: Context): Color = Color(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_BG_COLOR, DefaultBg.value.toInt()))
-    fun setBgColor(context: Context, color: Color) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_BG_COLOR, color.value.toInt()).apply()
+    fun getBgColor(context: Context): Color = Color(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_BG_COLOR, DefaultBg.toArgb()))
+    fun setBgColor(context: Context, color: Color) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_BG_COLOR, color.toArgb()).apply()
 
-    fun getChordColor(context: Context): Color = Color(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_CHORD_COLOR, DefaultChord.value.toInt()))
-    fun setChordColor(context: Context, color: Color) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_CHORD_COLOR, color.value.toInt()).apply()
+    fun getChordColor(context: Context): Color = Color(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_CHORD_COLOR, DefaultChord.toArgb()))
+    fun setChordColor(context: Context, color: Color) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_CHORD_COLOR, color.toArgb()).apply()
 
-    fun getLyricsColor(context: Context): Color = Color(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_LYRICS_COLOR, DefaultLyrics.value.toInt()))
-    fun setLyricsColor(context: Context, color: Color) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_LYRICS_COLOR, color.value.toInt()).apply()
+    fun getLyricsColor(context: Context): Color = Color(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_LYRICS_COLOR, DefaultLyrics.toArgb()))
+    fun setLyricsColor(context: Context, color: Color) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_LYRICS_COLOR, color.toArgb()).apply()
 
-    fun getSectionColor(context: Context): Color = Color(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_SECTION_COLOR, DefaultSection.value.toInt()))
-    fun setSectionColor(context: Context, color: Color) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_SECTION_COLOR, color.value.toInt()).apply()
+    fun getSectionColor(context: Context): Color = Color(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_SECTION_COLOR, DefaultSection.toArgb()))
+    fun setSectionColor(context: Context, color: Color) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_SECTION_COLOR, color.toArgb()).apply()
+
+    fun resetColors(context: Context) {
+        setBgColor(context, DefaultBg)
+        setChordColor(context, DefaultChord)
+        setLyricsColor(context, DefaultLyrics)
+        setSectionColor(context, DefaultSection)
+    }
 }
