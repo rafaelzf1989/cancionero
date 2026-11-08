@@ -53,6 +53,12 @@ class SongsViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
     )
 
+    private val _selectionMode = MutableStateFlow(false)
+    val selectionMode: StateFlow<Boolean> = _selectionMode.asStateFlow()
+
+    private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedIds: StateFlow<Set<Long>> = _selectedIds.asStateFlow()
+
     val filteredSongs: StateFlow<List<Song>> =
         combine(dao.observeAll(), _filters) { songs, f ->
             songs.filter { matches(it, f) }
@@ -84,6 +90,20 @@ class SongsViewModel(
     fun setMoment(m: String?) = _filters.update { it.copy(moment = m) }
     fun setTag(t: String?) = _filters.update { it.copy(tag = t) }
     fun clearFilters() { _filters.value = SongFilters() }
+
+    fun toggleSelectionMode() {
+        _selectionMode.update { !it }
+        if (!_selectionMode.value) _selectedIds.value = emptySet()
+    }
+
+    fun toggleSelected(id: Long) {
+        _selectedIds.update { if (id in it) it - id else it + id }
+    }
+
+    fun clearSelection() {
+        _selectedIds.value = emptySet()
+        _selectionMode.value = false
+    }
 
     fun save(song: Song) {
         viewModelScope.launch {
