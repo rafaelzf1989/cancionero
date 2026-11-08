@@ -9,6 +9,7 @@ import com.cancionero.app.data.db.MusicianDao
 import com.cancionero.app.data.db.SetlistDao
 import com.cancionero.app.data.model.Culto
 import com.cancionero.app.data.model.CultoMusician
+import com.cancionero.app.data.model.CultoSetlist
 import com.cancionero.app.data.model.Musician
 import com.cancionero.app.data.model.Setlist
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,7 +35,12 @@ class CultosViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
     )
 
-    fun save(culto: Culto, musicianIds: List<Long>) {
+    fun save(
+        culto: Culto,
+        musicianIds: List<Long>,
+        musicianRoles: Map<Long, String?>,
+        setlistIds: List<Long>
+    ) {
         viewModelScope.launch {
             val id = if (culto.id == 0L) {
                 cultoDao.insert(culto)
@@ -45,7 +51,21 @@ class CultosViewModel(
             cultoDao.clearMusiciansForCulto(id)
             if (musicianIds.isNotEmpty()) {
                 cultoDao.assignMusicians(
-                    musicianIds.map { CultoMusician(cultoId = id, musicianId = it) }
+                    musicianIds.map {
+                        CultoMusician(
+                            cultoId = id,
+                            musicianId = it,
+                            rolesInCulto = musicianRoles[it]
+                        )
+                    }
+                )
+            }
+            cultoDao.clearSetlistsForCulto(id)
+            if (setlistIds.isNotEmpty()) {
+                cultoDao.assignSetlists(
+                    setlistIds.mapIndexed { idx, slId ->
+                        CultoSetlist(cultoId = id, setlistId = slId, position = idx)
+                    }
                 )
             }
         }
@@ -55,16 +75,33 @@ class CultosViewModel(
         viewModelScope.launch { cultoDao.delete(culto) }
     }
 
-    fun assignToMany(cultoIds: List<Long>, setlistId: Long?) {
+    fun assignSetlistToMany(cultoIds: List<Long>, setlistId: Long?) {
         if (cultoIds.isEmpty()) return
         viewModelScope.launch {
-            cultoDao.assignSetlistToMany(setlistId, cultoIds)
+            cultoIds.forEach { cultoId ->
+                cultoDao.clearSetlistsForCulto(cultoId)
+                if (setlistId != null) {
+                    cultoDao.assignSetlists(
+                        listOf(
+                            CultoSetlist(cultoId = cultoId, setlistId = setlistId, position = 0)
+                        )
+                    )
+                }
+            }
         }
     }
 
-    suspend fun getMusicianIdsFor(cultoId: Long): List<Long> {
-        return cultoDao.getMusicianIdsOfCulto(cultoId)
+    suspend fun getMusicianIdsFor(cultoId: Long): List<Long> =
+        cultoDao.getMusicianIdsOfCulto(cultoId)
+
+    suspend fun getMusicianRolesFor(cultoId: Long): Map<Long, String?> {
+        return cultoDao.getCultoMusiciansOfCulto(cultoId).associate {
+            it.musicianId to it.rolesInCulto
+        }
     }
+
+    suspend fun getSetlistIdsFor(cultoId: Long): List<Long> =
+        cultoDao.getSetlistIdsOfCulto(cultoId)
 
     companion object {
         fun factory(
