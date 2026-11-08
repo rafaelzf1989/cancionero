@@ -20,8 +20,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -34,15 +36,19 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +72,7 @@ fun SetlistDetailScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val setlist by vm.setlist.collectAsState()
     val songsFromDb by vm.songs.collectAsState()
     val allSongs by vm.allSongs.collectAsState()
@@ -76,6 +83,8 @@ fun SetlistDetailScreen(
     var confirmRemove by remember { mutableStateOf<Song?>(null) }
     var showShareDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var noteDialogSong by remember { mutableStateOf<Song?>(null) }
+    var currentNote by remember { mutableStateOf("") }
 
     LaunchedEffect(songsFromDb, groupByMoment) {
         if (!groupByMoment) {
@@ -164,10 +173,16 @@ fun SetlistDetailScreen(
                             }
                             items(group, key = { it.id }) { song ->
                                 counter++
-                                GroupedSongRow(
+                                SwipeableGroupedRow(
                                     index = counter,
                                     song = song,
-                                    onRemove = { confirmRemove = song }
+                                    onRemoveRequest = { confirmRemove = song },
+                                    onEditNote = {
+                                        scope.launch {
+                                            currentNote = vm.getNoteFor(song.id) ?: ""
+                                            noteDialogSong = song
+                                        }
+                                    }
                                 )
                                 HorizontalDivider()
                             }
@@ -184,10 +199,16 @@ fun SetlistDetailScreen(
                         }
                         items(noMoment, key = { it.id }) { song ->
                             counter++
-                            GroupedSongRow(
+                            SwipeableGroupedRow(
                                 index = counter,
                                 song = song,
-                                onRemove = { confirmRemove = song }
+                                onRemoveRequest = { confirmRemove = song },
+                                onEditNote = {
+                                    scope.launch {
+                                        currentNote = vm.getNoteFor(song.id) ?: ""
+                                        noteDialogSong = song
+                                    }
+                                }
                             )
                             HorizontalDivider()
                         }
@@ -197,51 +218,86 @@ fun SetlistDetailScreen(
                 LazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize()) {
                     itemsIndexed(localSongs, key = { _, s -> s.id }) { index, song ->
                         ReorderableItem(reorderState, key = song.id) { isDragging ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(
-                                        if (isDragging)
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                        else Color.Transparent
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.DragHandle,
-                                    contentDescription = "Reordenar",
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .padding(8.dp)
-                                        .longPressDraggableHandle()
-                                )
-                                Text(
-                                    "${index + 1}.",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.width(28.dp)
-                                )
-                                Column(Modifier.weight(1f)) {
-                                    Text(song.title, style = MaterialTheme.typography.titleMedium)
-                                    val sub = buildString {
-                                        append(song.songKey)
-                                        val t = listOfNotNull(
-                                            song.tempoBpm?.let { "$it BPM" },
-                                            song.tempoText?.takeIf { it.isNotBlank() }
-                                        ).joinToString(" · ")
-                                        if (t.isNotEmpty()) {
-                                            append(" · ")
-                                            append(t)
-                                        }
-                                        song.moment?.let {
-                                            append(" · ")
-                                            append(it)
-                                        }
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = { value ->
+                                    if (value == SwipeToDismissBoxValue.EndToStart) {
+                                        confirmRemove = song
                                     }
-                                    Text(sub, style = MaterialTheme.typography.bodySmall)
+                                    false
                                 }
-                                IconButton(onClick = { confirmRemove = song }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Quitar")
+                            )
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                enableDismissFromStartToEnd = false,
+                                backgroundContent = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(MaterialTheme.colorScheme.errorContainer)
+                                            .padding(horizontal = 24.dp),
+                                        contentAlignment = Alignment.CenterEnd
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = null
+                                        )
+                                    }
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            if (isDragging)
+                                                MaterialTheme.colorScheme.surfaceVariant
+                                            else MaterialTheme.colorScheme.surface
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.DragHandle,
+                                        contentDescription = "Reordenar",
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .padding(8.dp)
+                                            .longPressDraggableHandle()
+                                    )
+                                    Text(
+                                        "${index + 1}.",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.width(28.dp)
+                                    )
+                                    Column(Modifier.weight(1f)) {
+                                        Text(song.title, style = MaterialTheme.typography.titleMedium)
+                                        val sub = buildString {
+                                            append(song.songKey)
+                                            val t = listOfNotNull(
+                                                song.tempoBpm?.let { "$it BPM" },
+                                                song.tempoText?.takeIf { it.isNotBlank() }
+                                            ).joinToString(" · ")
+                                            if (t.isNotEmpty()) {
+                                                append(" · ")
+                                                append(t)
+                                            }
+                                            song.moment?.let {
+                                                append(" · ")
+                                                append(it)
+                                            }
+                                        }
+                                        Text(sub, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    IconButton(onClick = {
+                                        scope.launch {
+                                            currentNote = vm.getNoteFor(song.id) ?: ""
+                                            noteDialogSong = song
+                                        }
+                                    }) {
+                                        Icon(Icons.Default.Note, contentDescription = "Nota")
+                                    }
+                                    IconButton(onClick = { confirmRemove = song }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Quitar")
+                                    }
                                 }
                             }
                             HorizontalDivider()
@@ -275,6 +331,40 @@ fun SetlistDetailScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showRenameDialog = false }) { Text("Cancelar") }
+                }
+            )
+        }
+
+        noteDialogSong?.let { song ->
+            AlertDialog(
+                onDismissRequest = {
+                    noteDialogSong = null
+                    currentNote = ""
+                },
+                title = { Text("Nota para ${song.title}") },
+                text = {
+                    OutlinedTextField(
+                        value = currentNote,
+                        onValueChange = { currentNote = it },
+                        label = { Text("Nota (ej. empezar más lento)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            vm.saveNote(song.id, currentNote.ifBlank { null })
+                            noteDialogSong = null
+                            currentNote = ""
+                        }
+                    ) { Text("Guardar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        noteDialogSong = null
+                        currentNote = ""
+                    }) { Text("Cancelar") }
                 }
             )
         }
@@ -370,39 +460,66 @@ fun SetlistDetailScreen(
 }
 
 @Composable
-private fun GroupedSongRow(
+private fun SwipeableGroupedRow(
     index: Int,
     song: Song,
-    onRemove: () -> Unit
+    onRemoveRequest: () -> Unit,
+    onEditNote: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            "$index.",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.width(36.dp)
-        )
-        Column(Modifier.weight(1f)) {
-            Text(song.title, style = MaterialTheme.typography.titleMedium)
-            val sub = buildString {
-                append(song.songKey)
-                val t = listOfNotNull(
-                    song.tempoBpm?.let { "$it BPM" },
-                    song.tempoText?.takeIf { it.isNotBlank() }
-                ).joinToString(" · ")
-                if (t.isNotEmpty()) {
-                    append(" · ")
-                    append(t)
-                }
-            }
-            Text(sub, style = MaterialTheme.typography.bodySmall)
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) onRemoveRequest()
+            false
         }
-        IconButton(onClick = onRemove) {
-            Icon(Icons.Default.Close, contentDescription = "Quitar")
+    )
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(horizontal = 24.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null)
+            }
+        }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "$index.",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.width(36.dp)
+            )
+            Column(Modifier.weight(1f)) {
+                Text(song.title, style = MaterialTheme.typography.titleMedium)
+                val sub = buildString {
+                    append(song.songKey)
+                    val t = listOfNotNull(
+                        song.tempoBpm?.let { "$it BPM" },
+                        song.tempoText?.takeIf { it.isNotBlank() }
+                    ).joinToString(" · ")
+                    if (t.isNotEmpty()) {
+                        append(" · ")
+                        append(t)
+                    }
+                }
+                Text(sub, style = MaterialTheme.typography.bodySmall)
+            }
+            IconButton(onClick = onEditNote) {
+                Icon(Icons.Default.Note, contentDescription = "Nota")
+            }
+            IconButton(onClick = onRemoveRequest) {
+                Icon(Icons.Default.Close, contentDescription = "Quitar")
+            }
         }
     }
 }
