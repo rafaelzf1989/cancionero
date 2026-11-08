@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Fondo circular teal -->
+    <path
+        android:fillColor="#00897B"
+        android:pathData="M54,54 m-54,0 a54,54 0 1,1 108,0 a54,54 0 1,1 -108,0" />
+
+    <!-- Nota musical - cabeza izquierda -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,72 m-9,0 a9,9 0 1,1 18,0 a9,9 0 1,1 -18,0" />
+
+    <!-- Nota musical - cabeza derecha -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M68,64 m-9,0 a9,9 0 1,1 18,0 a9,9 0 1,1 -18,0" />
+
+    <!-- Nota musical - tallo izquierdo -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M45,72 L45,34 L50,34 L50,72 Z" />
+
+    <!-- Nota musical - tallo derecho -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M73,64 L73,26 L78,26 L78,64 Z" />
+
+    <!-- Nota musical - barra conectora -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M45,34 L78,26 L78,32 L45,40 Z" />
+</vector>
