@@ -68,6 +68,15 @@ class SetlistDetailViewModel(
         }
     }
 
+    suspend fun getNoteFor(songId: Long): String? =
+        setlistDao.getNoteFor(setlistId, songId)
+
+    fun saveNote(songId: Long, note: String?) {
+        viewModelScope.launch {
+            setlistDao.updateNote(setlistId, songId, note)
+        }
+    }
+
     companion object {
         fun factory(
             setlistDao: SetlistDao,
