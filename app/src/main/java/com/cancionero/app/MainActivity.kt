@@ -45,6 +45,9 @@ import com.cancionero.app.data.model.Song
 import com.cancionero.app.ui.cultos.CultoFormScreen
 import com.cancionero.app.ui.cultos.CultosScreen
 import com.cancionero.app.ui.cultos.CultosViewModel
+import com.cancionero.app.ui.live.LiveCultoScreen
+import com.cancionero.app.ui.live.LiveViewModel
+import com.cancionero.app.ui.live.StageScreen
 import com.cancionero.app.ui.moments.ManageMomentsScreen
 import com.cancionero.app.ui.moments.MomentsViewModel
 import com.cancionero.app.ui.musicians.MusicianFormScreen
@@ -72,6 +75,8 @@ sealed interface Screen {
     data object ImportSetlist : Screen
     data object Cultos : Screen
     data object CultoForm : Screen
+    data class LiveCulto(val cultoId: Long) : Screen
+    data class Stage(val cultoId: Long, val startIndex: Int) : Screen
     data object Musicians : Screen
     data object MusicianForm : Screen
     data object Settings : Screen
@@ -153,34 +158,38 @@ fun AppContent(
         }
     }
 
-    BackHandler {
-        when (screen) {
-            is Screen.Repertorio -> {
-                if (backPressedOnce) {
-                    (context as? Activity)?.finish()
-                } else {
-                    backPressedOnce = true
-                    Toast.makeText(
-                        context,
-                        "Pulsa atrás de nuevo para salir",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-            else -> {
-                editingSong = null
-                editingCulto = null
-                editingMusician = null
-                screen = Screen.Repertorio
-            }
-        }
-    }
-
     val showBottomBar = screen is Screen.Repertorio ||
             screen is Screen.Setlists ||
             screen is Screen.Cultos ||
             screen is Screen.Musicians ||
             screen is Screen.Settings
+
+    val showDefaultBackHandler = screen !is Screen.Stage && screen !is Screen.LiveCulto
+
+    if (showDefaultBackHandler) {
+        BackHandler {
+            when (screen) {
+                is Screen.Repertorio -> {
+                    if (backPressedOnce) {
+                        (context as? Activity)?.finish()
+                    } else {
+                        backPressedOnce = true
+                        Toast.makeText(
+                            context,
+                            "Pulsa atrás de nuevo para salir",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+                else -> {
+                    editingSong = null
+                    editingCulto = null
+                    editingMusician = null
+                    screen = Screen.Repertorio
+                }
+            }
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -322,6 +331,9 @@ fun AppContent(
                         onEditCulto = { culto ->
                             editingCulto = culto
                             screen = Screen.CultoForm
+                        },
+                        onStartLive = { cultoId ->
+                            screen = Screen.LiveCulto(cultoId)
                         }
                     )
                 }
@@ -352,6 +364,33 @@ fun AppContent(
                             editingCulto = null
                             screen = Screen.Cultos
                         }
+                    )
+                }
+                is Screen.LiveCulto -> {
+                    val vm: LiveViewModel = viewModel(
+                        key = "live_${s.cultoId}",
+                        factory = LiveViewModel.factory(db.cultoDao(), s.cultoId)
+                    )
+                    LiveCultoScreen(
+                        vm = vm,
+                        onSongClick = { index ->
+                            screen = Screen.Stage(s.cultoId, index)
+                        },
+                        onBack = { screen = Screen.Cultos }
+                    )
+                }
+                is Screen.Stage -> {
+                    val vm: LiveViewModel = viewModel(
+                        key = "live_${s.cultoId}",
+                        factory = LiveViewModel.factory(db.cultoDao(), s.cultoId)
+                    )
+                    val songs by vm.songs.collectAsState()
+                    val culto by vm.culto.collectAsState()
+                    StageScreen(
+                        cultoName = culto?.name ?: "Culto",
+                        songs = songs,
+                        startIndex = s.startIndex,
+                        onBack = { screen = Screen.LiveCulto(s.cultoId) }
                     )
                 }
                 is Screen.Musicians -> {
