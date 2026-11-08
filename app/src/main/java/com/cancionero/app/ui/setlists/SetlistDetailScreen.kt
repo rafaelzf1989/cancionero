@@ -21,8 +21,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -30,6 +32,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -72,6 +75,7 @@ fun SetlistDetailScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf<Song?>(null) }
     var showShareDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(songsFromDb, groupByMoment) {
         if (!groupByMoment) {
@@ -101,6 +105,9 @@ fun SetlistDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showRenameDialog = true }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Renombrar")
+                    }
                     IconButton(
                         onClick = { showShareDialog = true },
                         enabled = displaySongs.isNotEmpty()
@@ -242,6 +249,34 @@ fun SetlistDetailScreen(
                     }
                 }
             }
+        }
+
+        if (showRenameDialog) {
+            var newName by remember { mutableStateOf(setlist?.name ?: "") }
+            AlertDialog(
+                onDismissRequest = { showRenameDialog = false },
+                title = { Text("Renombrar setlist") },
+                text = {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("Nombre") },
+                        singleLine = true
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            vm.rename(newName)
+                            showRenameDialog = false
+                        },
+                        enabled = newName.isNotBlank()
+                    ) { Text("Guardar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRenameDialog = false }) { Text("Cancelar") }
+                }
+            )
         }
 
         if (showAddDialog) {
