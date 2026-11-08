@@ -12,14 +12,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,15 +37,20 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.cancionero.app.data.model.Culto
+import com.cancionero.app.data.model.Musician
 import com.cancionero.app.data.model.Setlist
+import com.cancionero.app.share.ShareHelper
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -138,13 +146,18 @@ private fun formatTimeButton(hour: Int, minute: Int): String {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CultoFormScreen(
+    vm: CultosViewModel,
     initial: Culto?,
     setlists: List<Setlist>,
-    onSave: (Culto) -> Unit,
+    allMusicians: List<Musician>,
+    onSave: (Culto, List<Long>) -> Unit,
     onDelete: (Culto) -> Unit,
     onCancel: () -> Unit
 ) {
+    val context = LocalContext.current
+
     var name by remember { mutableStateOf(initial?.name ?: "") }
+    var leader by remember { mutableStateOf(initial?.leader ?: "") }
     var dateMidnight by remember {
         mutableStateOf(
             initial?.let { toMidnight(it.dateMillis) } ?: defaultDateMidnight()
@@ -160,6 +173,14 @@ fun CultoFormScreen(
     var setlistExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+
+    var selectedMusicianIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+
+    LaunchedEffect(initial?.id) {
+        if (initial != null && initial.id > 0) {
+            selectedMusicianIds = vm.getMusicianIdsFor(initial.id).toSet()
+        }
+    }
 
     val validSetlistId = setlistId?.takeIf { id -> setlists.any { it.id == id } }
 
@@ -187,6 +208,15 @@ fun CultoFormScreen(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Nombre del culto *") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = leader,
+                onValueChange = { leader = it },
+                label = { Text("Responsable (opcional)") },
+                placeholder = { Text("Quién dirige") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -241,6 +271,65 @@ fun CultoFormScreen(
                 }
             }
 
+            HorizontalDivider()
+            Text("Músicos asignados", style = MaterialTheme.typography.labelLarge)
+
+            if (allMusicians.isEmpty()) {
+                Text(
+                    "No hay músicos creados.\nVe a la pestaña Músicos para añadir.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                allMusicians.forEach { m ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = m.id in selectedMusicianIds,
+                            onCheckedChange = {
+                                selectedMusicianIds = if (m.id in selectedMusicianIds)
+                                    selectedMusicianIds - m.id
+                                else
+                                    selectedMusicianIds + m.id
+                            }
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(m.name)
+                            val sub = buildString {
+                                append(m.role)
+                                if (!m.phone.isNullOrBlank()) {
+                                    append(" · ")
+                                    append(m.phone)
+                                }
+                            }
+                            Text(sub, style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (!m.phone.isNullOrBlank()) {
+                            IconButton(onClick = {
+                                val fechaStr = formatDateTime(
+                                    combineDateAndTime(dateMidnight, hour, minute)
+                                )
+                                val msg = buildString {
+                                    append("Hola ")
+                                    append(m.name)
+                                    append(", te recuerdo que tocas el ")
+                                    append(fechaStr)
+                                    if (name.isNotBlank()) {
+                                        append(" en ")
+                                        append(name.trim())
+                                    }
+                                    append(".")
+                                }
+                                ShareHelper.openWhatsApp(context, m.phone!!, msg)
+                            }) {
+                                Icon(Icons.Default.Chat, contentDescription = "WhatsApp")
+                            }
+                        }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
 
             Button(
@@ -250,8 +339,10 @@ fun CultoFormScreen(
                             id = initial?.id ?: 0,
                             name = name.trim(),
                             dateMillis = combineDateAndTime(dateMidnight, hour, minute),
-                            setlistId = validSetlistId
-                        )
+                            setlistId = validSetlistId,
+                            leader = leader.trim().ifBlank { null }
+                        ),
+                        selectedMusicianIds.toList()
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
