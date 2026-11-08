@@ -36,6 +36,8 @@ import com.cancionero.app.data.model.Song
 import com.cancionero.app.ui.cultos.CultoFormScreen
 import com.cancionero.app.ui.cultos.CultosScreen
 import com.cancionero.app.ui.cultos.CultosViewModel
+import com.cancionero.app.ui.moments.ManageMomentsScreen
+import com.cancionero.app.ui.moments.MomentsViewModel
 import com.cancionero.app.ui.setlists.ImportSetlistScreen
 import com.cancionero.app.ui.setlists.ImportViewModel
 import com.cancionero.app.ui.setlists.SetlistDetailScreen
@@ -57,6 +59,7 @@ sealed interface Screen {
     data object Cultos : Screen
     data object CultoForm : Screen
     data object Settings : Screen
+    data object ManageMoments : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -95,6 +98,8 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
     var screen by remember { mutableStateOf<Screen>(Screen.Repertorio) }
     var editingSong by remember { mutableStateOf<Song?>(null) }
     var editingCulto by remember { mutableStateOf<Culto?>(null) }
+    // Guardamos la pantalla a la que volver tras ManageMoments
+    var returnAfterMoments by remember { mutableStateOf<Screen>(Screen.Repertorio) }
 
     val showBottomBar = screen is Screen.Repertorio ||
             screen is Screen.Setlists ||
@@ -137,7 +142,7 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
             when (val s = screen) {
                 is Screen.Repertorio -> {
                     val vm: SongsViewModel = viewModel(
-                        factory = SongsViewModel.factory(db.songDao())
+                        factory = SongsViewModel.factory(db.songDao(), db.momentDao())
                     )
                     RepertorioScreen(
                         vm = vm,
@@ -148,45 +153,55 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                         onEditSong = { song ->
                             editingSong = song
                             screen = Screen.SongForm
+                        },
+                        onManageMoments = {
+                            returnAfterMoments = Screen.Repertorio
+                            screen = Screen.ManageMoments
                         }
                     )
                 }
                 is Screen.SongForm -> {
                     val vm: SongsViewModel = viewModel(
-                        factory = SongsViewModel.factory(db.songDao())
+                        factory = SongsViewModel.factory(db.songDao(), db.momentDao())
                     )
+                    val moments by vm.moments.collectAsState()
                     SongFormScreen(
-    initial = editingSong,
-    onSave = { song ->
-        vm.save(song)
-        editingSong = null
-        screen = Screen.Repertorio
-    },
-    onDelete = { song ->
-        vm.delete(song)
-        editingSong = null
-        screen = Screen.Repertorio
-    },
-    onDuplicate = { song ->
-        vm.duplicate(song)
-        editingSong = null
-        screen = Screen.Repertorio
-    },
-    onCancel = {
-        editingSong = null
-        screen = Screen.Repertorio
-    }
-)
+                        initial = editingSong,
+                        moments = moments,
+                        onSave = { song ->
+                            vm.save(song)
+                            editingSong = null
+                            screen = Screen.Repertorio
+                        },
+                        onDelete = { song ->
+                            vm.delete(song)
+                            editingSong = null
+                            screen = Screen.Repertorio
+                        },
+                        onDuplicate = { song ->
+                            vm.duplicate(song)
+                            editingSong = null
+                            screen = Screen.Repertorio
+                        },
+                        onManageMoments = {
+                            returnAfterMoments = Screen.SongForm
+                            screen = Screen.ManageMoments
+                        },
+                        onCancel = {
+                            editingSong = null
+                            screen = Screen.Repertorio
+                        }
+                    )
                 }
                 is Screen.Setlists -> {
                     val vm: SetlistsViewModel = viewModel(
                         factory = SetlistsViewModel.factory(db.setlistDao())
                     )
                     SetlistsScreen(
-    vm = vm,
-    onOpenSetlist = { sl -> screen = Screen.SetlistDetail(sl.id) },
-    onImportClick = { screen = Screen.ImportSetlist }
-)
+                        vm = vm,
+                        onOpenSetlist = { sl -> screen = Screen.SetlistDetail(sl.id) },
+                        onImportClick = { screen = Screen.ImportSetlist }
+                    )
                 }
                 is Screen.SetlistDetail -> {
                     val vm: SetlistDetailViewModel = viewModel(
@@ -254,6 +269,15 @@ fun AppContent(db: AppDatabase, themeMode: Int, onThemeModeChanged: (Int) -> Uni
                     SettingsScreen(
                         currentMode = themeMode,
                         onModeChanged = onThemeModeChanged
+                    )
+                }
+                is Screen.ManageMoments -> {
+                    val vm: MomentsViewModel = viewModel(
+                        factory = MomentsViewModel.factory(db.momentDao())
+                    )
+                    ManageMomentsScreen(
+                        vm = vm,
+                        onBack = { screen = returnAfterMoments }
                     )
                 }
             }
