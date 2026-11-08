@@ -36,7 +36,32 @@ object ShareHelper {
             }
             context.startActivity(Intent.createChooser(intent, "Compartir setlist"))
         } catch (e: Exception) {
-            // Si falla, no rompemos la app
+            // silencioso
         }
+    }
+
+    fun shareSong(context: Context, song: Song) {
+        val text = buildString {
+            appendLine("Canción: ${song.title}")
+            appendLine("Tonalidad: ${song.songKey}")
+            song.tempoBpm?.let { appendLine("BPM: $it") }
+            song.tempoText?.let { appendLine("Tempo: $it") }
+            val sources = mutableListOf<String>()
+            if (song.sourceLaCuerda) sources.add("LaCuerda")
+            if (song.sourceCancionero) sources.add("Cancionero")
+            if (song.libretaNumber != null) sources.add("Libreta #${song.libretaNumber}")
+            if (sources.isNotEmpty()) appendLine("Fuente: ${sources.joinToString(", ")}")
+            song.moment?.let { appendLine("Momento: $it") }
+            song.tags?.takeIf { it.isNotBlank() }?.let { appendLine("Tags: $it") }
+            song.notes?.let { appendLine("Notas: $it") }
+            appendLine()
+            appendLine("— Compartido con Cancionero")
+        }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, song.title)
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        context.startActivity(Intent.createChooser(intent, "Compartir canción"))
     }
 }
