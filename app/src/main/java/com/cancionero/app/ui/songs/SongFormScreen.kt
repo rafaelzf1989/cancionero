@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -29,6 +30,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.cancionero.app.data.model.Moment
 import com.cancionero.app.data.model.Song
 import com.cancionero.app.share.ShareHelper
 
@@ -47,9 +50,11 @@ import com.cancionero.app.share.ShareHelper
 @Composable
 fun SongFormScreen(
     initial: Song?,
+    moments: List<Moment>,
     onSave: (Song) -> Unit,
     onDelete: (Song) -> Unit,
     onDuplicate: (Song) -> Unit,
+    onManageMoments: () -> Unit,
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
@@ -65,11 +70,6 @@ fun SongFormScreen(
     var notes by remember { mutableStateOf(initial?.notes ?: "") }
     var moment by remember { mutableStateOf(initial?.moment) }
     var tags by remember { mutableStateOf(initial?.tags ?: "") }
-
-    val momentos = listOf(
-        "Entrada", "Adoración", "Alabanza", "Ofrenda",
-        "Comunión", "Especial", "Despedida"
-    )
 
     Scaffold(
         topBar = {
@@ -158,17 +158,32 @@ fun SongFormScreen(
                 }
             }
 
-            Text("Momento del culto", style = MaterialTheme.typography.labelLarge)
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                momentos.forEach { m ->
-                    FilterChip(
-                        selected = moment == m,
-                        onClick = { moment = if (moment == m) null else m },
-                        label = { Text(m) }
-                    )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Momento del culto", style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onManageMoments) {
+                    Icon(Icons.Default.Settings, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Gestionar")
+                }
+            }
+            if (moments.isEmpty()) {
+                Text(
+                    "No hay momentos. Pulsa Gestionar para crear.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    moments.forEach { m ->
+                        FilterChip(
+                            selected = moment == m.name,
+                            onClick = { moment = if (moment == m.name) null else m.name },
+                            label = { Text(m.name) }
+                        )
+                    }
                 }
             }
 
