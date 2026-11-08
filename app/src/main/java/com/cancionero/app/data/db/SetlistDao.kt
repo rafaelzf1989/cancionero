@@ -25,6 +25,9 @@ interface SetlistDao {
     @Query("SELECT * FROM setlists ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<Setlist>>
 
+    @Query("SELECT * FROM setlists WHERE isTemplate = 1 ORDER BY name COLLATE NOCASE ASC")
+    fun observeTemplates(): Flow<List<Setlist>>
+
     @Query("SELECT * FROM setlists WHERE id = :id")
     suspend fun getById(id: Long): Setlist?
 
@@ -40,6 +43,13 @@ interface SetlistDao {
         "WHERE ss.setlistId = :setlistId ORDER BY ss.position ASC"
     )
     fun observeSongsOfSetlist(setlistId: Long): Flow<List<Song>>
+
+    @Query(
+        "SELECT s.* FROM songs s " +
+        "INNER JOIN setlist_songs ss ON s.id = ss.songId " +
+        "WHERE ss.setlistId = :setlistId ORDER BY ss.position ASC"
+    )
+    suspend fun getSongsOnce(setlistId: Long): List<Song>
 
     @Query("SELECT COALESCE(MAX(position), -1) FROM setlist_songs WHERE setlistId = :setlistId")
     suspend fun maxPosition(setlistId: Long): Int
