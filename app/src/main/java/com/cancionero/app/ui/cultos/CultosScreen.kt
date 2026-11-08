@@ -83,7 +83,6 @@ fun CultosScreen(
     var showBulkAssign by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf<CultoWithCount?>(null) }
 
-    val setlistsById = setlists.associateBy { it.id }
     val grouped = cultos
         .sortedBy { it.dateMillis }
         .groupBy { formatDateHeader(it.dateMillis) }
@@ -97,7 +96,7 @@ fun CultosScreen(
                         onClick = { showBulkAssign = true },
                         enabled = cultos.isNotEmpty() && setlists.isNotEmpty()
                     ) {
-                        Icon(Icons.Default.Group, contentDescription = "Asignar a varios")
+                        Icon(Icons.Default.Group, contentDescription = "Asignar setlist")
                     }
                 }
             )
@@ -133,14 +132,12 @@ fun CultosScreen(
                     items(dayCultos, key = { it.id }) { cwc ->
                         CultoRow(
                             culto = cwc,
-                            setlistName = cwc.setlistId?.let { setlistsById[it]?.name },
                             onClick = {
                                 onEditCulto(
                                     Culto(
                                         id = cwc.id,
                                         name = cwc.name,
                                         dateMillis = cwc.dateMillis,
-                                        setlistId = cwc.setlistId,
                                         leader = cwc.leader
                                     )
                                 )
@@ -159,7 +156,7 @@ fun CultosScreen(
                 setlists = setlists,
                 onDismiss = { showBulkAssign = false },
                 onApply = { cultoIds, setlistId ->
-                    vm.assignToMany(cultoIds, setlistId)
+                    vm.assignSetlistToMany(cultoIds, setlistId)
                     showBulkAssign = false
                 }
             )
@@ -177,7 +174,6 @@ fun CultosScreen(
                                 id = c.id,
                                 name = c.name,
                                 dateMillis = c.dateMillis,
-                                setlistId = c.setlistId,
                                 leader = c.leader
                             )
                         )
@@ -195,7 +191,6 @@ fun CultosScreen(
 @Composable
 private fun CultoRow(
     culto: CultoWithCount,
-    setlistName: String?,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -209,7 +204,7 @@ private fun CultoRow(
         Column(Modifier.weight(1f)) {
             Text(culto.name, style = MaterialTheme.typography.titleMedium)
             Text(
-                "${formatTime12h(culto.dateMillis)} · ${setlistName ?: "Sin setlist"}",
+                formatTime12h(culto.dateMillis),
                 style = MaterialTheme.typography.bodySmall
             )
             val meta = buildString {
@@ -221,6 +216,11 @@ private fun CultoRow(
                     if (isNotEmpty()) append(" · ")
                     append(culto.musicianCount)
                     append(if (culto.musicianCount == 1) " músico" else " músicos")
+                }
+                if (culto.setlistCount > 0) {
+                    if (isNotEmpty()) append(" · ")
+                    append(culto.setlistCount)
+                    append(if (culto.setlistCount == 1) " setlist" else " setlists")
                 }
             }
             if (meta.isNotEmpty()) {
@@ -286,7 +286,10 @@ private fun BulkAssignDialog(
                     }
                 }
 
-                Text("Cultos:", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "Reemplaza los setlists de estos cultos:",
+                    style = MaterialTheme.typography.labelMedium
+                )
 
                 Column(
                     modifier = Modifier
