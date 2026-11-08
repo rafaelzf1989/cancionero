@@ -24,11 +24,10 @@ object AppSettings {
             .edit().putFloat(KEY_FONT_SCALE, scale).apply()
     }
 
-    // Colores por defecto (Holyrics style)
-    val DefaultBg = Color(0xFF000000)       // Negro
-    val DefaultChord = Color(0xFF00E5FF)    // Cian
-    val DefaultLyrics = Color(0xFFFFFFFF)   // Blanco
-    val DefaultSection = Color(0xFF9E9E9E)  // Gris
+    val DefaultBg = Color(0xFF000000)
+    val DefaultChord = Color(0xFF00E5FF)
+    val DefaultLyrics = Color(0xFFFFFFFF)
+    val DefaultSection = Color(0xFF9E9E9E)
 
     fun getBgColor(context: Context): Color = Color(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_BG_COLOR, DefaultBg.value.toInt()))
     fun setBgColor(context: Context, color: Color) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_BG_COLOR, color.value.toInt()).apply()
