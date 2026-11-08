@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -48,13 +49,16 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     db: AppDatabase,
     currentMode: Int,
+    currentFontScale: Float,
     onModeChanged: (Int) -> Unit,
+    onFontScaleChanged: (Float) -> Unit,
     onBack: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -142,6 +146,34 @@ fun SettingsScreen(
             Spacer(Modifier.height(8.dp))
             HorizontalDivider()
 
+            Text("Tamaño de letra", style = MaterialTheme.typography.titleMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("A", style = MaterialTheme.typography.bodySmall)
+                Slider(
+                    value = currentFontScale,
+                    onValueChange = onFontScaleChanged,
+                    valueRange = AppSettings.FONT_SCALE_MIN..AppSettings.FONT_SCALE_MAX,
+                    steps = 7,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                )
+                Text("A", style = MaterialTheme.typography.titleLarge)
+            }
+            Text(
+                "Actual: ${(currentFontScale * 100).roundToInt()}%",
+                style = MaterialTheme.typography.bodySmall
+            )
+            TextButton(onClick = { onFontScaleChanged(AppSettings.FONT_SCALE_DEFAULT) }) {
+                Text("Restablecer al 100%")
+            }
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+
             Text("Copia de seguridad", style = MaterialTheme.typography.titleMedium)
             Text(
                 "Guarda un archivo con TODOS tus datos (canciones, " +
@@ -189,8 +221,8 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
-            Text("Cancionero v1.0", style = MaterialTheme.typography.bodySmall)
-            Text("Fase 12 completada ✅", style = MaterialTheme.typography.bodySmall)
+            Text("Cancionero v1.1", style = MaterialTheme.typography.bodySmall)
+            Text("Fase 13 completada ✅", style = MaterialTheme.typography.bodySmall)
         }
 
         if (showConfirmRestore && pendingRestore != null) {
