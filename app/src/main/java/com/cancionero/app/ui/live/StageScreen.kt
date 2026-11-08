@@ -57,9 +57,21 @@ fun StageScreen(
     }
 
     val bgColor = AppSettings.getBgColor(context)
-    val chordColor = AppSettings.getChordColor(context)
-    val lyricsColor = AppSettings.getLyricsColor(context)
-    val sectionColor = AppSettings.getSectionColor(context)
+    // PROTECCIÓN: Si el color de texto es igual al de fondo, forzamos un color visible
+    val rawLyricsColor = AppSettings.getLyricsColor(context)
+    val lyricsColor = if (rawLyricsColor == bgColor) {
+        if (bgColor == Color.White) Color.Black else Color.White
+    } else rawLyricsColor
+    
+    val rawChordColor = AppSettings.getChordColor(context)
+    val chordColor = if (rawChordColor == bgColor) {
+        if (bgColor == Color.White) Color(0xFF00897B) else Color(0xFF00E5FF)
+    } else rawChordColor
+
+    val rawSectionColor = AppSettings.getSectionColor(context)
+    val sectionColor = if (rawSectionColor == bgColor) {
+        if (bgColor == Color.White) Color.DarkGray else Color.LightGray
+    } else rawSectionColor
 
     val activity = context as? Activity
     DisposableEffect(activity) {
@@ -130,7 +142,6 @@ fun StageScreen(
 
                 if (sections.isNotEmpty()) {
                     sections.forEach { section ->
-                        // Título de la sección (Etiqueta)
                         Surface(
                             color = sectionColor.copy(alpha = 0.2f),
                             shape = MaterialTheme.shapes.small,
@@ -145,7 +156,6 @@ fun StageScreen(
                             )
                         }
                         
-                        // Líneas de acordes y letras
                         section.lines.forEach { line ->
                             if (line.chords.isNotBlank()) {
                                 Text(
@@ -168,8 +178,9 @@ fun StageScreen(
                         Spacer(Modifier.height(12.dp))
                     }
                 } else {
+                    val rawLyrics = if (song.lyrics.isNullOrBlank()) "Sin letra registrada." else song.lyrics
                     Text(
-                        song.lyrics ?: "Sin letra registrada.",
+                        rawLyrics,
                         style = MaterialTheme.typography.bodyLarge,
                         color = lyricsColor
                     )
