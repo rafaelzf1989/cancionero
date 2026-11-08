@@ -26,16 +26,12 @@ class SetlistDetailViewModel(
 
     val songs: StateFlow<List<Song>> =
         setlistDao.observeSongsOfSetlist(setlistId).stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
+            viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
         )
 
     val allSongs: StateFlow<List<Song>> =
         songDao.observeAll().stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
+            viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
         )
 
     fun addSong(song: Song) {
@@ -74,6 +70,14 @@ class SetlistDetailViewModel(
             val next = refs[idx + 1]
             setlistDao.updatePosition(setlistId, current.songId, next.position)
             setlistDao.updatePosition(setlistId, next.songId, current.position)
+        }
+    }
+
+    fun persistReorder(orderedSongIds: List<Long>) {
+        viewModelScope.launch {
+            orderedSongIds.forEachIndexed { idx, songId ->
+                setlistDao.updatePosition(setlistId, songId, idx)
+            }
         }
     }
 
