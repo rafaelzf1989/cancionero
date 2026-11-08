@@ -17,11 +17,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -46,9 +51,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.cancionero.app.data.model.Moment
 import com.cancionero.app.data.model.Song
+import com.cancionero.app.share.ShareHelper
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,32 +66,59 @@ fun RepertorioScreen(
     onEditSong: (Song) -> Unit,
     onManageMoments: () -> Unit
 ) {
+    val context = LocalContext.current
     val songs by vm.filteredSongs.collectAsState()
     val filters by vm.filters.collectAsState()
     val moments by vm.moments.collectAsState()
+    val selectionMode by vm.selectionMode.collectAsState()
+    val selectedIds by vm.selectedIds.collectAsState()
 
     var showFilters by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val activeCount = filters.activeCount()
 
+    val selectedSongs = songs.filter { it.id in selectedIds }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Repertorio") },
+                title = {
+                    if (selectionMode) Text("${selectedIds.size} seleccionadas")
+                    else Text("Repertorio")
+                },
+                navigationIcon = {
+                    if (selectionMode) {
+                        IconButton(onClick = { vm.toggleSelectionMode() }) {
+                            Icon(Icons.Default.Close, contentDescription = "Cancelar")
+                        }
+                    }
+                },
                 actions = {
-                    IconButton(onClick = { showFilters = true }) {
-                        Icon(
-                            Icons.Default.FilterList,
-                            contentDescription = "Filtros"
-                        )
+                    if (selectionMode) {
+                        IconButton(
+                            onClick = { showShareDialog = true },
+                            enabled = selectedIds.isNotEmpty()
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = "Compartir")
+                        }
+                    } else {
+                        IconButton(onClick = { vm.toggleSelectionMode() }) {
+                            Icon(Icons.Default.Checklist, contentDescription = "Seleccionar")
+                        }
+                        IconButton(onClick = { showFilters = true }) {
+                            Icon(Icons.Default.FilterList, contentDescription = "Filtros")
+                        }
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddSong) {
-                Icon(Icons.Default.Add, contentDescription = "Añadir canción")
+            if (!selectionMode) {
+                FloatingActionButton(onClick = onAddSong) {
+                    Icon(Icons.Default.Add, contentDescription = "Añadir canción")
+                }
             }
         }
     ) { padding ->
@@ -93,46 +127,48 @@ fun RepertorioScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            OutlinedTextField(
-                value = filters.query,
-                onValueChange = vm::updateQuery,
-                label = { Text("Buscar por nombre") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
-            )
+            if (!selectionMode) {
+                OutlinedTextField(
+                    value = filters.query,
+                    onValueChange = vm::updateQuery,
+                    label = { Text("Buscar por nombre") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
+                )
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(onClick = { showFilters = true }) {
-                    Icon(Icons.Default.FilterList, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        if (activeCount == 0) "Filtros"
-                        else "Filtros ($activeCount)"
-                    )
-                }
-                if (activeCount > 0) {
-                    Spacer(Modifier.width(8.dp))
-                    TextButton(onClick = { vm.clearFilters() }) {
-                        Text("Limpiar")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(onClick = { showFilters = true }) {
+                        Icon(Icons.Default.FilterList, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            if (activeCount == 0) "Filtros"
+                            else "Filtros ($activeCount)"
+                        )
+                    }
+                    if (activeCount > 0) {
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(onClick = { vm.clearFilters() }) {
+                            Text("Limpiar")
+                        }
                     }
                 }
+
+                Spacer(Modifier.height(4.dp))
+
+                Text(
+                    text = "${songs.size} canciones",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
             }
-
-            Spacer(Modifier.height(4.dp))
-
-            Text(
-                text = "${songs.size} canciones",
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            )
 
             if (songs.isEmpty()) {
                 Box(
@@ -150,7 +186,12 @@ fun RepertorioScreen(
                     items(songs, key = { it.id }) { song ->
                         SongRow(
                             song = song,
-                            onClick = { onEditSong(song) },
+                            selectionMode = selectionMode,
+                            isSelected = song.id in selectedIds,
+                            onClick = {
+                                if (selectionMode) vm.toggleSelected(song.id)
+                                else onEditSong(song)
+                            },
                             onToggleFavorite = { vm.toggleFavorite(song) }
                         )
                         HorizontalDivider()
@@ -181,6 +222,28 @@ fun RepertorioScreen(
                     }
                 )
             }
+        }
+
+        if (showShareDialog) {
+            AlertDialog(
+                onDismissRequest = { showShareDialog = false },
+                title = { Text("Compartir ${selectedSongs.size} canciones") },
+                text = { Text("Selecciona el formato:") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        ShareHelper.shareSongsJson(context, selectedSongs)
+                        showShareDialog = false
+                        vm.clearSelection()
+                    }) { Text("Archivo JSON") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        ShareHelper.shareSongsList(context, selectedSongs)
+                        showShareDialog = false
+                        vm.clearSelection()
+                    }) { Text("Texto") }
+                }
+            )
         }
     }
 }
@@ -312,6 +375,8 @@ private fun FiltersSheetContent(
 @Composable
 private fun SongRow(
     song: Song,
+    selectionMode: Boolean,
+    isSelected: Boolean,
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
@@ -322,6 +387,12 @@ private fun SongRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (selectionMode) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onClick() }
+            )
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(song.title, style = MaterialTheme.typography.titleMedium)
             val subtitle = buildString {
@@ -351,14 +422,16 @@ private fun SongRow(
                 )
             }
         }
-        Spacer(Modifier.width(8.dp))
-        IconButton(onClick = onToggleFavorite) {
-            Icon(
-                imageVector = if (song.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
-                contentDescription = "Favorito",
-                tint = if (song.isFavorite) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        if (!selectionMode) {
+            Spacer(Modifier.width(8.dp))
+            IconButton(onClick = onToggleFavorite) {
+                Icon(
+                    imageVector = if (song.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
+                    contentDescription = "Favorito",
+                    tint = if (song.isFavorite) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
