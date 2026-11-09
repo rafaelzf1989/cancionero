@@ -41,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.cancionero.app.data.model.Moment
@@ -270,7 +272,9 @@ fun SongFormScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 12,
-                visualTransformation = HolyricsVisualTransformation(chordColor, sectionColor)
+                visualTransformation = HolyricsVisualTransformation(chordColor, sectionColor),
+                // FORZAMOS LA FUENTE MONOESPACIADA EN TODO EL CUADRO
+                textStyle = TextStyle(fontFamily = FontFamily.Monospace)
             )
 
             Button(
